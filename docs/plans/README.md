@@ -10,7 +10,8 @@ For clean-clone setup, local usage, token permissions, verification commands, de
 
 - Build a repository-agnostic viewer for any supported GitHub repository.
 - Deploy a static single-page application to GitHub Pages; do not introduce an application backend.
-- Call `api.github.com/graphql` directly with a token supplied by the user.
+- Ship the same viewer as a VS Code extension whose extension host authenticates through GitHub CLI or the VS Code GitHub account; the webview never receives a credential.
+- In the browser, call `api.github.com/graphql` directly with a token supplied by the user.
 - Keep the token in tab memory only. Never place it in storage, URLs, logs, exports, source, or generated assets.
 - Use React, strict ES2024 TypeScript, Vite, and Bun.
 - Use GitHub Primer React, Primer tokens, and Octicons for the application shell.
@@ -29,6 +30,7 @@ For clean-clone setup, local usage, token permissions, verification commands, de
 | [03-user-interface-and-accessibility.md](./03-user-interface-and-accessibility.md) | Primer visual language, desktop/mobile shell, interactions, and accessibility |
 | [04-security-and-privacy.md](./04-security-and-privacy.md) | Token lifecycle, content boundaries, CSP, exports, and threat controls |
 | [05-quality-deployment-and-roadmap.md](./05-quality-deployment-and-roadmap.md) | Verification layers, CI, Pages, performance, execution order, and release gates |
+| [06-vscode-extension.md](./06-vscode-extension.md) | VS Code delivery, GitHub CLI and VS Code authentication, webview protocol, and CSP |
 
 ## Execution rule
 

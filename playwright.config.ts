@@ -28,6 +28,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1_440, height: 900 } },
     },
     {
+      name: 'vscode-webview-chromium',
+      testMatch: /vscode-webview\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1_280, height: 800 } },
+    },
+    {
       name: 'mobile-chromium',
       testMatch: /mobile\.spec\.ts/,
       use: { ...devices['Pixel 5'] },

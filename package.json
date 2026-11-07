@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && bun run check:bundle",
+    "build:vscode": "vite build --config vite.webview.config.ts && bun build extension/src/extension.ts --target=node --format=cjs --external vscode --sourcemap=linked --outdir extension/dist",
     "preview": "vite preview",
     "check": "biome check . && tsc --noEmit --pretty false",
     "check:bundle": "bun run scripts/check-bundle-budget.ts",
@@ -15,7 +16,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "benchmark:graphs": "bun run scripts/benchmark-large-graphs.ts",
-    "verify": "bun run check && bun run test && bun run test:e2e && bun run build"
+    "package:vscode": "bun run build:vscode && bun run scripts/package-vscode-extension.ts",
+    "verify": "bun run check && bun run test && bun run test:e2e && bun run build && bun run build:vscode"
   },
   "dependencies": {
     "@primer/octicons-react": "19.29.2",
@@ -42,7 +44,9 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@types/react-is": "19.2.0",
+    "@types/vscode": "1.90.0",
     "@vitejs/plugin-react": "6.0.3",
+    "@vscode/vsce": "4.1.0",
     "jsdom": "29.1.1",
     "typescript": "7.0.2",
     "vite": "8.1.4",

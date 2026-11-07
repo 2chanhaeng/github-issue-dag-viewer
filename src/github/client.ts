@@ -2,8 +2,9 @@ import type { ZodType } from 'zod'
 import type { RepositoryLoadUpdate, RepositoryRef, RepositorySnapshot } from '../domain/types'
 import { type DependencyRef, type IssueRecord, issueKey } from '../domain/types'
 import { issueDetailsSchema, type RepositoryPageResponse, repositoryPageSchema } from './schemas'
+import { GitHubGraphQlError, type GraphQlTransport } from './transport'
 
-const GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
+export { GitHubGraphQlError, type GraphQlTransport, tokenTransport } from './transport'
 
 const REPOSITORY_PAGE_QUERY = `
   query RepositoryIssueDependencies($owner: String!, $name: String!, $cursor: String) {
@@ -45,51 +46,14 @@ const ISSUE_DETAILS_QUERY = `
   }
 `
 
-interface GraphQlEnvelope {
-  data?: unknown
-  errors?: unknown[]
-}
-
-export class GitHubGraphQlError extends Error {
-  public constructor(message: string) {
-    super(message)
-    this.name = 'GitHubGraphQlError'
-  }
-}
-
 const request = async <T>(
-  token: string,
+  transport: GraphQlTransport,
   query: string,
   variables: Readonly<Record<string, unknown>>,
   schema: ZodType<T>,
   signal?: AbortSignal,
 ): Promise<T> => {
-  const response = await fetch(GRAPHQL_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2026-03-10',
-    },
-    body: JSON.stringify({ query, variables }),
-    cache: 'no-store',
-    ...(signal === undefined ? {} : { signal }),
-  })
-
-  let envelope: GraphQlEnvelope
-  try {
-    envelope = (await response.json()) as GraphQlEnvelope
-  } catch {
-    throw new GitHubGraphQlError(
-      response.ok
-        ? 'GitHub returned an unexpected GraphQL response.'
-        : `GitHub returned HTTP ${response.status}.`,
-    )
-  }
-  if (!response.ok) {
-    throw new GitHubGraphQlError(`GitHub returned HTTP ${response.status}.`)
-  }
+  const envelope = await transport(query, variables, signal)
   if (envelope.data === undefined || (envelope.errors?.length ?? 0) > 0) {
     throw new GitHubGraphQlError('GitHub rejected the GraphQL request.')
   }
@@ -133,7 +97,7 @@ const issueRecord = (
 
 export const fetchRepositorySnapshot = async (
   repository: RepositoryRef,
-  token: string,
+  transport: GraphQlTransport,
   onUpdate: (update: RepositoryLoadUpdate) => void,
   signal?: AbortSignal,
 ): Promise<RepositorySnapshot> => {
@@ -145,7 +109,7 @@ export const fetchRepositorySnapshot = async (
 
   while (hasNextPage) {
     const page: RepositoryPageResponse = await request(
-      token,
+      transport,
       REPOSITORY_PAGE_QUERY,
       { owner: repository.owner, name: repository.name, cursor },
       repositoryPageSchema,
@@ -193,11 +157,11 @@ export const fetchRepositorySnapshot = async (
 export const fetchIssueBody = async (
   repository: RepositoryRef,
   number: number,
-  token: string,
+  transport: GraphQlTransport,
   signal?: AbortSignal,
 ): Promise<string> => {
   const result = await request(
-    token,
+    transport,
     ISSUE_DETAILS_QUERY,
     { owner: repository.owner, name: repository.name, number },
     issueDetailsSchema,

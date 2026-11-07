@@ -1,20 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 export type ColorMode = 'light' | 'dark'
 
-const preferredMode = (): ColorMode =>
-  window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-
-export const useColorMode = (): ColorMode => {
-  const [mode, setMode] = useState<ColorMode>(() => preferredMode())
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const updateMode = (event: MediaQueryListEvent): void =>
-      setMode(event.matches ? 'dark' : 'light')
-    media.addEventListener('change', updateMode)
-    return () => media.removeEventListener('change', updateMode)
-  }, [])
-
-  return mode
+/** An external color-mode signal, such as the operating system or the VS Code theme. */
+export interface ColorModeSource {
+  /** True when Primer can resolve the mode itself from `prefers-color-scheme`. */
+  followsSystem: boolean
+  current: () => ColorMode
+  subscribe: (onChange: () => void) => () => void
 }
+
+const DARK_SCHEME_QUERY = '(prefers-color-scheme: dark)'
+
+export const systemColorModes: ColorModeSource = {
+  followsSystem: true,
+  current: () => (window.matchMedia(DARK_SCHEME_QUERY).matches ? 'dark' : 'light'),
+  subscribe: (onChange) => {
+    const media = window.matchMedia(DARK_SCHEME_QUERY)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  },
+}
+
+export const useColorMode = (source: ColorModeSource): ColorMode =>
+  useSyncExternalStore(source.subscribe, source.current)

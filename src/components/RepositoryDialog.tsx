@@ -2,12 +2,14 @@ import { KeyIcon, MarkGithubIcon, RepoIcon } from '@primer/octicons-react'
 import { Button, Flash, FormControl, Link, TextInput } from '@primer/react'
 import { useEffect, useRef, useState } from 'react'
 import type { LoadProgress } from '../domain/types'
+import type { CredentialMode } from '../platform/types'
 import { RepositoryLoadProgress } from './RepositoryLoadProgress'
 
 const TOKEN_TEMPLATE_URL =
   'https://github.com/settings/personal-access-tokens/new?name=Issue%20Atlas&description=Read%20issue%20dependency%20graphs&expires_in=30&issues=read'
 
 interface RepositoryDialogProps {
+  credentials: CredentialMode
   open: boolean
   initialRepository: string
   loading: boolean
@@ -18,7 +20,36 @@ interface RepositoryDialogProps {
   onDemo: () => void
 }
 
+const TokenField = ({
+  token,
+  onChange,
+}: {
+  token: string
+  onChange: (token: string) => void
+}): React.JSX.Element => (
+  <FormControl required>
+    <FormControl.Label>Read-only GitHub token</FormControl.Label>
+    <TextInput
+      autoComplete="off"
+      block
+      leadingVisual={KeyIcon}
+      onChange={(event) => onChange(event.currentTarget.value)}
+      placeholder="github_pat_… or ghp_…"
+      type="password"
+      value={token}
+    />
+    <FormControl.Caption>
+      <Link href={TOKEN_TEMPLATE_URL} rel="noopener noreferrer" target="_blank">
+        Create a fine-grained read-only token
+      </Link>
+      , choose repository access, then paste it here. The token stays only in this tab’s memory and
+      is sent only to api.github.com.
+    </FormControl.Caption>
+  </FormControl>
+)
+
 export const RepositoryDialog = ({
+  credentials,
   open,
   initialRepository,
   loading,
@@ -79,25 +110,14 @@ export const RepositoryDialog = ({
           />
         </FormControl>
 
-        <FormControl required>
-          <FormControl.Label>Read-only GitHub token</FormControl.Label>
-          <TextInput
-            autoComplete="off"
-            block
-            leadingVisual={KeyIcon}
-            onChange={(event) => setToken(event.currentTarget.value)}
-            placeholder="github_pat_… or ghp_…"
-            type="password"
-            value={token}
-          />
-          <FormControl.Caption>
-            <Link href={TOKEN_TEMPLATE_URL} rel="noopener noreferrer" target="_blank">
-              Create a fine-grained read-only token
-            </Link>
-            , choose repository access, then paste it here. The token stays only in this tab’s
-            memory and is sent only to api.github.com.
-          </FormControl.Caption>
-        </FormControl>
+        {credentials.kind === 'token' ? (
+          <TokenField onChange={setToken} token={token} />
+        ) : (
+          <p className="dialog-credentials">
+            <KeyIcon size={16} />
+            <span>{credentials.description}</span>
+          </p>
+        )}
 
         {loading && progress !== null ? (
           <div aria-live="polite" className="dialog-load-progress" role="status">

@@ -4,6 +4,7 @@ import { relatedNodes } from '../domain/graph'
 import { canExportPng } from '../domain/graph-delivery'
 import type { GraphAnalysis } from '../domain/types'
 import type { ColorMode } from '../hooks/use-color-mode'
+import type { ExportFile } from '../platform/types'
 
 cytoscape.use(dagre)
 
@@ -175,17 +176,18 @@ export const focusSelection = (
   cy.getElementById(selectedKey).select()
 }
 
-export const downloadPng = (cy: Core): void => {
-  const anchor = document.createElement('a')
-  anchor.download = 'issue-dependency-graph.png'
-  anchor.href = cy.png({
+export const pngExportFile = (cy: Core): ExportFile => ({
+  name: 'issue-dependency-graph.png',
+  mimeType: 'image/png',
+  encoding: 'base64',
+  data: cy.png({
     bg: palette('light').canvas,
     full: true,
     maxWidth: 6000,
     maxHeight: 6000,
-  })
-  anchor.click()
-}
+    output: 'base64',
+  }),
+})
 
 export const fitGraph = (cy: Core): void => {
   const visible = cy.elements(':visible')

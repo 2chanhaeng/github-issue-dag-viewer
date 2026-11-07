@@ -156,6 +156,22 @@
   line-height: 1.5;
 }
 
+.repository-dialog .dialog-credentials {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bgColor-muted, #f6f8fa);
+  border: 1px solid var(--borderColor-muted, #d8dee4);
+  border-radius: 6px;
+}
+
+.dialog-credentials svg {
+  flex: none;
+  margin-top: 3px;
+}
+
 .dialog-actions {
   display: flex;
   gap: 8px;

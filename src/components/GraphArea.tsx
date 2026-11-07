@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { graphDeliveryMode } from '../domain/graph-delivery'
 import type { GraphAnalysis, LoadProgress } from '../domain/types'
 import type { ColorMode } from '../hooks/use-color-mode'
+import type { ExportFile } from '../platform/types'
 import type { LayoutDirection } from './GraphCanvas'
 import { GraphGate } from './GraphGate'
 
@@ -21,6 +22,7 @@ interface GraphAreaProps {
   onDirectionChange: (direction: LayoutDirection) => void
   onOpenInspector: () => void
   onOpenIssues: () => void
+  onSaveFile: (file: ExportFile) => void
   onSelect: (key: string) => void
 }
 
@@ -35,6 +37,7 @@ export const GraphArea = ({
   onDirectionChange,
   onOpenInspector,
   onOpenIssues,
+  onSaveFile,
   onSelect,
 }: GraphAreaProps): React.JSX.Element => {
   const [largeGraphEnabled, setLargeGraphEnabled] = useState(false)
@@ -91,6 +94,7 @@ export const GraphArea = ({
             onLayoutError={setLayoutError}
             onOpenInspector={onOpenInspector}
             onOpenIssues={onOpenIssues}
+            onSaveFile={onSaveFile}
             onSelect={onSelect}
             selectedKey={selectedKey}
             warning={graphWarning}

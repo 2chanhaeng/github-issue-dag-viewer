@@ -19,7 +19,9 @@ The [contributor and operations guide](../contributor-guide.md) is the clean-clo
 | `bun run test` | Run deterministic unit and component tests |
 | `bun run test:e2e` | Run browser workflows |
 | `bun run build` | Produce the static Pages artifact |
-| `bun run verify` | Run repository checks, tests, and production build |
+| `bun run build:vscode` | Build the VS Code webview bundle and extension host |
+| `bun run package:vscode` | Package `extension/issue-atlas-<version>.vsix` |
+| `bun run verify` | Run repository checks, tests, production build, and VS Code build |
 
 ## Verification layers
 
@@ -61,6 +63,14 @@ The [contributor and operations guide](../contributor-guide.md) is the clean-clo
 - Phone issue and detail overlays.
 - Keyboard navigation, accessible names, focus visibility, and automated WCAG checks.
 - No unexpected console errors.
+- The VS Code webview through a stand-in host: automatic connection, streamed pages, lazy bodies, host-side exports, theme-kind changes, no token field, and host failures.
+
+### VS Code extension tests
+
+- GitHub CLI transport arguments, cancellation, signed-out and missing-executable detection, and bounded failures.
+- Credential selection and the GitHub CLI to VS Code account fallback.
+- Webview message validation, page deltas, document CSP, and configuration escaping.
+- Git remote discovery.
 
 ## CI workflow
 

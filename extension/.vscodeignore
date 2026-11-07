@@ -1,0 +1,9 @@
+**
+!package.json
+!README.md
+!LICENSE
+!dist/extension.js
+!dist/webview/*.js
+!dist/webview/*.css
+!dist/webview/chunks/*.js
+!dist/webview/assets/*

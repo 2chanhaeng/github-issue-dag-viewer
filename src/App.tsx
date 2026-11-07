@@ -14,9 +14,10 @@ import { demoSnapshot } from './demo/demo-data'
 import { availableLabels, filterIssueKeys } from './domain/filters'
 import { analyzeGraph } from './domain/graph'
 import type { GraphAnalysis, GraphFilters, LoadProgress, RepositorySnapshot } from './domain/types'
-import { fetchIssueBody, fetchRepositorySnapshot } from './github/client'
 import { parseRepositoryInput } from './github/parse-repository'
 import { useColorMode } from './hooks/use-color-mode'
+import { useLazyIssueBody } from './hooks/use-issue-body'
+import type { ExportFile, IssueSource, ViewerPlatform } from './platform/types'
 import './styles/base.css'
 import './styles/shell.css'
 import './styles/details.css'
@@ -31,35 +32,20 @@ const initialFilters = (): GraphFilters => ({
   showExternal: true,
 })
 
-const repositoryFromUrl = (): string =>
-  new URLSearchParams(window.location.search).get('repo') ?? ''
-
-const updateRepositoryUrl = (repository: string | null): void => {
-  const url = new URL(window.location.href)
-  if (repository === null) url.searchParams.delete('repo')
-  else url.searchParams.set('repo', repository)
-  window.history.replaceState(null, '', url)
-}
-
-const downloadJson = (snapshot: RepositorySnapshot, keys: ReadonlySet<string>): void => {
-  const issues = snapshot.issues.filter(({ key }) => keys.has(key))
-  const blob = new Blob(
-    [
-      JSON.stringify(
-        { repository: snapshot.repository, fetchedAt: snapshot.fetchedAt, issues },
-        null,
-        2,
-      ),
-    ],
-    { type: 'application/json' },
-  )
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.download = `${snapshot.repository.name}-issue-dependencies.json`
-  anchor.href = url
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
+const jsonExportFile = (snapshot: RepositorySnapshot, keys: ReadonlySet<string>): ExportFile => ({
+  name: `${snapshot.repository.name}-issue-dependencies.json`,
+  mimeType: 'application/json',
+  encoding: 'utf8',
+  data: JSON.stringify(
+    {
+      repository: snapshot.repository,
+      fetchedAt: snapshot.fetchedAt,
+      issues: snapshot.issues.filter(({ key }) => keys.has(key)),
+    },
+    null,
+    2,
+  ),
+})
 
 const selectInitialIssue = (snapshot: RepositorySnapshot): string | null => {
   const analysis = analyzeGraph(snapshot.issues)
@@ -90,9 +76,10 @@ const RepositoryLoadOverlay = ({ progress }: { progress: LoadProgress }): React.
   </div>
 )
 
-export default function App(): React.JSX.Element {
-  const initialRepository = repositoryFromUrl()
-  const colorMode = useColorMode()
+export default function App({ platform }: { platform: ViewerPlatform }): React.JSX.Element {
+  const { initialRepository } = platform
+  const connectsOnStart = platform.credentials.kind === 'host' && initialRepository.length > 0
+  const colorMode = useColorMode(platform.colorModes)
   const [snapshot, setSnapshot] = useState<RepositorySnapshot>(demoSnapshot)
   const [source, setSource] = useState<'demo' | 'github'>('demo')
   const [filters, setFilters] = useState<GraphFilters>(initialFilters)
@@ -100,14 +87,13 @@ export default function App(): React.JSX.Element {
     selectInitialIssue(demoSnapshot),
   )
   const [direction, setDirection] = useState<LayoutDirection>('LR')
-  const [dialogOpen, setDialogOpen] = useState(initialRepository.length > 0)
+  const [dialogOpen, setDialogOpen] = useState(initialRepository.length > 0 && !connectsOnStart)
   const [loading, setLoading] = useState(false)
-  const [bodyLoading, setBodyLoading] = useState(false)
   const [issuesOpen, setIssuesOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [progress, setProgress] = useState<LoadProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const tokenRef = useRef('')
+  const sourceRef = useRef<IssueSource | null>(null)
   const loadAbortRef = useRef<AbortController | null>(null)
 
   const analysis = useMemo(() => analyzeGraph(snapshot.issues), [snapshot.issues])
@@ -124,110 +110,107 @@ export default function App(): React.JSX.Element {
     setSelectedKey([...visibleKeys][0] ?? null)
   }, [selectedKey, visibleKeys])
 
-  useEffect(() => {
-    if (
-      source !== 'github' ||
-      loading ||
-      selectedIssue === null ||
-      selectedIssue.isExternal ||
-      selectedIssue.body !== null ||
-      tokenRef.current.length === 0
-    ) {
-      return
-    }
+  const storeIssueBody = useCallback(
+    (key: string, body: string) =>
+      setSnapshot((current) => ({
+        ...current,
+        issues: current.issues.map((issue) => (issue.key === key ? { ...issue, body } : issue)),
+      })),
+    [],
+  )
+  const bodyLoading = useLazyIssueBody({
+    enabled: source === 'github' && !loading,
+    issue: selectedIssue,
+    repository: snapshot.repository,
+    sourceRef,
+    onBody: storeIssueBody,
+    onError: setError,
+  })
 
-    const controller = new AbortController()
-    setBodyLoading(true)
-    fetchIssueBody(snapshot.repository, selectedIssue.number, tokenRef.current, controller.signal)
-      .then((body) =>
-        setSnapshot((current) => ({
-          ...current,
-          issues: current.issues.map((issue) =>
-            issue.key === selectedIssue.key ? { ...issue, body } : issue,
-          ),
-        })),
-      )
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted)
-          setError(reason instanceof Error ? reason.message : 'Unable to load issue.')
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setBodyLoading(false)
-      })
-    return () => controller.abort()
-  }, [loading, selectedIssue, snapshot.repository, source])
+  const loadRepository = useCallback(
+    async (input: string, token: string): Promise<void> => {
+      let controller: AbortController | null = null
+      try {
+        const repository = parseRepositoryInput(input)
+        const normalizedToken = token.trim()
+        if (platform.credentials.kind === 'token' && normalizedToken.length === 0) {
+          throw new Error('A GitHub token is required for GraphQL.')
+        }
+        loadAbortRef.current?.abort()
+        controller = new AbortController()
+        loadAbortRef.current = controller
+        const issueSource = platform.openSource(normalizedToken)
+        sourceRef.current = issueSource
+        setLoading(true)
+        setError(null)
+        setProgress({ loaded: 0, total: 0 })
+        let published = false
+        const loaded = await issueSource.loadRepository(
+          repository,
+          ({ progress: nextProgress, snapshot: partialSnapshot }) => {
+            setProgress(nextProgress)
+            if (published) {
+              startTransition(() => setSnapshot(partialSnapshot))
+              return
+            }
 
-  const loadRepository = useCallback(async (input: string, token: string): Promise<void> => {
-    let controller: AbortController | null = null
-    try {
-      const repository = parseRepositoryInput(input)
-      const normalizedToken = token.trim()
-      if (normalizedToken.length === 0) throw new Error('A GitHub token is required for GraphQL.')
-      loadAbortRef.current?.abort()
-      controller = new AbortController()
-      loadAbortRef.current = controller
-      tokenRef.current = normalizedToken
-      setLoading(true)
-      setError(null)
-      setProgress({ loaded: 0, total: 0 })
-      let published = false
-      const loaded = await fetchRepositorySnapshot(
-        repository,
-        normalizedToken,
-        ({ progress: nextProgress, snapshot: partialSnapshot }) => {
-          setProgress(nextProgress)
-          if (published) {
-            startTransition(() => setSnapshot(partialSnapshot))
-            return
-          }
-
-          published = true
-          setSnapshot(partialSnapshot)
-          setSource('github')
-          setFilters(initialFilters())
-          setSelectedKey(selectInitialIssue(partialSnapshot))
-          setDialogOpen(false)
-          updateRepositoryUrl(partialSnapshot.repository.nameWithOwner)
-        },
-        controller.signal,
-      )
-      if (controller.signal.aborted) return
-      setSnapshot(loaded)
-    } catch (reason) {
-      if (controller?.signal.aborted) return
-      tokenRef.current = ''
-      setError(reason instanceof Error ? reason.message : 'Unable to load repository.')
-      setDialogOpen(true)
-    } finally {
-      if (controller === null || loadAbortRef.current === controller) {
-        loadAbortRef.current = null
-        setLoading(false)
-        setProgress(null)
+            published = true
+            setSnapshot(partialSnapshot)
+            setSource('github')
+            setFilters(initialFilters())
+            setSelectedKey(selectInitialIssue(partialSnapshot))
+            setDialogOpen(false)
+            platform.rememberRepository(partialSnapshot.repository.nameWithOwner)
+          },
+          controller.signal,
+        )
+        if (controller.signal.aborted) return
+        setSnapshot(loaded)
+      } catch (reason) {
+        if (controller?.signal.aborted) return
+        sourceRef.current = null
+        setError(reason instanceof Error ? reason.message : 'Unable to load repository.')
+        setDialogOpen(true)
+      } finally {
+        if (controller === null || loadAbortRef.current === controller) {
+          loadAbortRef.current = null
+          setLoading(false)
+          setProgress(null)
+        }
       }
-    }
-  }, [])
+    },
+    [platform],
+  )
+
+  useEffect(() => {
+    if (connectsOnStart) void loadRepository(initialRepository, '')
+  }, [connectsOnStart, initialRepository, loadRepository])
 
   const loadDemo = (): void => {
     loadAbortRef.current?.abort()
-    tokenRef.current = ''
+    sourceRef.current = null
     setSnapshot({ ...demoSnapshot, fetchedAt: new Date().toISOString() })
     setSource('demo')
     setFilters(initialFilters())
     setSelectedKey(selectInitialIssue(demoSnapshot))
     setDialogOpen(false)
     setError(null)
-    updateRepositoryUrl(null)
+    platform.rememberRepository(null)
   }
 
   const graphWarning = loading ? '' : graphWarningFor(analysis, snapshot)
 
   return (
-    <ThemeProvider colorMode="auto" dayScheme="light" nightScheme="dark">
+    <ThemeProvider
+      colorMode={platform.colorModes.followsSystem ? 'auto' : colorMode}
+      dayScheme="light"
+      nightScheme="dark"
+    >
       <BaseStyles className="app-root">
         <AppHeader
           loading={loading}
           onChangeRepository={() => setDialogOpen(true)}
-          onExport={() => downloadJson(snapshot, visibleKeys)}
+          onExport={() => platform.saveFile(jsonExportFile(snapshot, visibleKeys))}
           repository={snapshot.repository.nameWithOwner}
           source={source}
         />
@@ -259,6 +242,7 @@ export default function App(): React.JSX.Element {
             onDirectionChange={setDirection}
             onOpenInspector={() => setInspectorOpen(true)}
             onOpenIssues={() => setIssuesOpen(true)}
+            onSaveFile={platform.saveFile}
             onSelect={selectIssue}
             selectedKey={selectedKey}
             warning={graphWarning}
@@ -280,6 +264,7 @@ export default function App(): React.JSX.Element {
         {loading && progress !== null ? <RepositoryLoadOverlay progress={progress} /> : null}
 
         <RepositoryDialog
+          credentials={platform.credentials}
           error={error}
           initialRepository={initialRepository || snapshot.repository.url}
           loading={loading}

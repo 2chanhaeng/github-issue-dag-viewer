@@ -21,6 +21,18 @@ I set a `./goal` in Codex to implement the graph autonomously. The DAG supplied 
 
 GitHub GraphQL requires authentication for public and private repositories. Limit the token to the repositories you want to inspect with **Issues: Read-only** permission. Issue Atlas sends it only to `https://api.github.com/graphql`, keeps it in memory for the current tab, and never writes it to storage, URLs, logs, exports, source maps, or deployment artifacts. Refreshing or closing the tab discards it.
 
+## Use in VS Code
+
+The VS Code extension opens the same viewer in an editor tab without a token. It sends requests through [GitHub CLI](https://cli.github.com/) (`gh api graphql`) when `gh` is signed in, and otherwise asks to sign in with the GitHub account in VS Code. Credentials stay in the extension host and never reach the viewer.
+
+```sh
+bun install --frozen-lockfile
+bun run package:vscode
+code --install-extension extension/issue-atlas-1.1.1.vsix
+```
+
+Run **Issue Atlas: Open Issue Dependency Graph** from the Command Palette. It opens the workspace's github.com repository, or asks which one when there are several remotes. See [the extension README](./extension/README.md) for settings.
+
 ## Run locally
 
 Install the pinned Bun version from [`.tool-versions`](./.tool-versions), then:
@@ -48,6 +60,8 @@ bunx playwright install chromium
 | `bun run test` | Unit and GitHub client contract tests |
 | `bun run test:e2e` | Desktop, mobile, and accessibility workflows |
 | `bun run build` | Production build and compressed bundle budgets |
+| `bun run build:vscode` | VS Code webview bundle and extension host |
+| `bun run package:vscode` | VS Code extension package (`.vsix`) |
 | `bun run verify` | The complete CI gate |
 
 ## Limits and documentation
@@ -56,6 +70,7 @@ Dependency connections are capped at 100 relationships per issue, cross-reposito
 
 - [Contributor and operations guide](./docs/contributor-guide.md)
 - [Product and architecture plans](./docs/plans/README.md)
+- [VS Code extension plan](./docs/plans/06-vscode-extension.md)
 - [Large-graph benchmark](./docs/performance/large-graph-benchmark.md)
 
 ## License

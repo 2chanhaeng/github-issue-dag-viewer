@@ -50,7 +50,7 @@ Use a fine-grained personal access token with:
 
 No write permission is used. Organization policy, SAML authorization, and token approval rules can still limit private-repository access. The application requires authentication for its GitHub GraphQL requests even when viewing a public repository.
 
-The token is sent only as the authorization header for `https://api.github.com/graphql`. It remains in a React ref for the current tab so the selected issue body can be loaded lazily. It is not written to browser storage, URLs, logs, exports, source maps, or Pages artifacts. Loading demo mode, replacing the repository, refreshing, or closing the tab discards it.
+The token is sent only as the authorization header for `https://api.github.com/graphql`. It remains in the active issue source, held by a React ref for the current tab, so the selected issue body can be loaded lazily. It is not written to browser storage, URLs, logs, exports, source maps, or Pages artifacts. Loading demo mode, replacing the repository, refreshing, or closing the tab discards it.
 
 ## Viewer behavior
 
@@ -83,6 +83,28 @@ The application follows the operating system's light or dark preference. There i
 
 **SVG** downloads the complete visible graph as a scalable vector image in the active system color mode. It remains available when the graph is too large for a bounded PNG.
 
+## VS Code extension
+
+The extension opens the same viewer in an editor tab. It needs no token: the extension host sends GraphQL through `gh api graphql`, or through the GitHub account signed in to VS Code when gh is missing or signed out. The [VS Code extension plan](./plans/06-vscode-extension.md) defines the credential, protocol, and CSP rules.
+
+Build and package it:
+
+```sh
+bun run package:vscode
+```
+
+This writes `extension/issue-atlas-<version>.vsix`. Install it with **Extensions: Install from VSIX…** or:
+
+```sh
+code --install-extension extension/issue-atlas-1.1.1.vsix
+```
+
+Then run **Issue Atlas: Open Issue Dependency Graph**. To debug without packaging, run `bun run build:vscode` and start VS Code with `code --extensionDevelopmentPath="$PWD/extension"`.
+
+`extension/package.json` must carry the same version as `package.json`; packaging fails otherwise. Change its `publisher` to your Marketplace publisher ID before publishing.
+
+`@types/vscode` is pinned to `1.90.0`, matching `engines.vscode`, instead of following the latest-release policy, because `vsce` rejects API types newer than the declared engine. Raise both together, and only when the extension needs a newer API.
+
 ## Architecture
 
 The application is static and has no backend:
@@ -92,10 +114,15 @@ src/
 ├── components/   React and Cytoscape presentation
 ├── demo/         offline projection of the live issue blueprint
 ├── domain/       graph contracts, normalization, analysis, and filters
-├── github/       repository parsing, GraphQL requests, and response schemas
-├── hooks/        system color-mode integration
+├── github/       repository parsing, GraphQL transports and requests, and response schemas
+├── hooks/        color-mode integration and lazy issue-body loading
+├── platform/     hosted-page and VS Code webview platforms and their message protocol
 └── styles/       shell, graph, inspector, and responsive CSS
+extension/
+└── src/          VS Code extension host: commands, credentials, panels, webview document
 ```
+
+`src/main.tsx` starts the hosted page and `src/webview.tsx` starts the VS Code webview. Both render the same `App` with a different `ViewerPlatform`.
 
 The browser calls GitHub GraphQL directly. Zod validates the response before it enters the domain. React Markdown renders issue bodies without raw HTML support. The issue list and inspector remain the accessible interaction path alongside the canvas.
 
@@ -109,6 +136,8 @@ The browser calls GitHub GraphQL directly. Zod validates the response before it 
 | `bun run test` | Unit and GitHub client contract tests |
 | `bun run test:e2e` | Desktop/mobile Playwright and automated accessibility workflows |
 | `bun run build` | Type check and production Vite build in `dist` |
+| `bun run build:vscode` | VS Code webview bundle and extension host in `extension/dist` |
+| `bun run package:vscode` | VS Code build plus `extension/issue-atlas-<version>.vsix` |
 | `bun run verify` | All repository gates in CI order |
 | `bun run benchmark:graphs` | Deterministic large-graph measurements |
 

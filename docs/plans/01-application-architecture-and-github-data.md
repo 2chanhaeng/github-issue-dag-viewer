@@ -29,9 +29,12 @@ src/
 ├── demo/              # implementation blueprint and offline repository projection
 ├── domain/            # repository-independent types, graph analysis, and filters
 ├── github/            # input parsing, response schemas, and GraphQL transport
-├── hooks/             # browser UI state such as color mode
+├── hooks/             # color mode and lazy issue-body loading
+├── platform/          # hosted-page and VS Code webview platforms
 └── styles/            # shell, graph, detail, and responsive styling
 ```
+
+The VS Code extension in `extension/` reuses `github/`, `domain/`, and `platform/`; see [the VS Code extension plan](./06-vscode-extension.md).
 
 Dependencies point inward:
 
@@ -88,7 +91,7 @@ The first release does not paginate each nested dependency connection. Doing so 
 ## State ownership
 
 - React state owns the current snapshot, source mode, filters, selection, layout direction, progress, and visible mobile panels.
-- A ref owns the active token and current load abort controller.
+- A ref owns the active issue source and current load abort controller. In the browser, the issue source closes over the token; in VS Code, it forwards requests to the extension host.
 - The URL owns only the optional canonical repository name.
 - No application state is written to local storage, session storage, IndexedDB, cookies, or service-worker caches.
 

@@ -1,5 +1,6 @@
 import type { Core } from 'cytoscape'
 import type { ColorMode } from '../hooks/use-color-mode'
+import type { ExportFile } from '../platform/types'
 import type { LayoutDirection } from './graph-renderer'
 
 const SVG_PADDING = 48
@@ -201,14 +202,13 @@ const graphForSvg = (cy: Core): SvgGraph => {
   }
 }
 
-export const downloadSvg = (cy: Core, direction: LayoutDirection, colorMode: ColorMode): void => {
-  const svg = renderGraphSvg(graphForSvg(cy), direction, colorMode)
-  const anchor = document.createElement('a')
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }))
-  anchor.download = 'issue-dependency-graph.svg'
-  anchor.href = url
-  document.body.append(anchor)
-  anchor.click()
-  anchor.remove()
-  queueMicrotask(() => URL.revokeObjectURL(url))
-}
+export const svgExportFile = (
+  cy: Core,
+  direction: LayoutDirection,
+  colorMode: ColorMode,
+): ExportFile => ({
+  name: 'issue-dependency-graph.svg',
+  mimeType: 'image/svg+xml;charset=utf-8',
+  encoding: 'utf8',
+  data: renderGraphSvg(graphForSvg(cy), direction, colorMode),
+})

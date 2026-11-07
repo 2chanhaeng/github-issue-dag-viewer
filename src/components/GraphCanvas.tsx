@@ -12,20 +12,21 @@ import cytoscape, { type Core } from 'cytoscape'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { GraphAnalysis } from '../domain/types'
 import type { ColorMode } from '../hooks/use-color-mode'
+import type { ExportFile } from '../platform/types'
 import { GraphToolbarNotice } from './GraphToolbarNotice'
 import {
   centerGraph,
-  downloadPng,
   fitGraph,
   focusSelection,
   graphElements,
   graphStyles,
   type LayoutDirection,
   pngExportAvailable,
+  pngExportFile,
   runLayout,
   setGraphVisibility,
 } from './graph-renderer'
-import { downloadSvg } from './graph-svg'
+import { svgExportFile } from './graph-svg'
 
 export type { LayoutDirection } from './graph-renderer'
 
@@ -38,6 +39,7 @@ interface GraphCanvasProps {
   warning: string
   onDirectionChange: (direction: LayoutDirection) => void
   onLayoutError: (message: string) => void
+  onSaveFile: (file: ExportFile) => void
   onSelect: (key: string) => void
   onOpenIssues: () => void
   onOpenInspector: () => void
@@ -52,6 +54,7 @@ export const GraphCanvas = ({
   warning,
   onDirectionChange,
   onLayoutError,
+  onSaveFile,
   onSelect,
   onOpenIssues,
   onOpenInspector,
@@ -242,7 +245,7 @@ export const GraphCanvas = ({
             leadingVisual={FileCodeIcon}
             onClick={() => {
               const cy = cyRef.current
-              if (cy !== null) downloadSvg(cy, direction, colorMode)
+              if (cy !== null) onSaveFile(svgExportFile(cy, direction, colorMode))
             }}
             size="small"
             variant="invisible"
@@ -267,7 +270,7 @@ export const GraphCanvas = ({
               leadingVisual={DownloadIcon}
               onClick={() => {
                 const cy = cyRef.current
-                if (cy !== null && pngAvailable === true) downloadPng(cy)
+                if (cy !== null && pngAvailable === true) onSaveFile(pngExportFile(cy))
               }}
               size="small"
               variant="invisible"

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RepositoryLoadUpdate } from '../src/domain/types'
-import { fetchIssueBody, fetchRepositorySnapshot, GitHubGraphQlError } from '../src/github/client'
+import {
+  fetchIssueBody,
+  fetchRepositorySnapshot,
+  GitHubGraphQlError,
+  tokenTransport,
+} from '../src/github/client'
 import {
   issueDetails,
   issueNode,
@@ -45,7 +50,11 @@ describe('fetchRepositorySnapshot', () => {
     )
     const onProgress = vi.fn<(update: RepositoryLoadUpdate) => void>()
 
-    const snapshot = await fetchRepositorySnapshot(repository, TEST_TOKEN, onProgress)
+    const snapshot = await fetchRepositorySnapshot(
+      repository,
+      tokenTransport(TEST_TOKEN),
+      onProgress,
+    )
 
     expect(snapshot.repository).toEqual(repository)
     expect(snapshot.issues).toHaveLength(1)
@@ -89,7 +98,11 @@ describe('fetchRepositorySnapshot', () => {
       .mockResolvedValueOnce(jsonResponse(repositoryPage({ nodes: [issueNode(2)], totalCount: 2 })))
     const onProgress = vi.fn<(update: RepositoryLoadUpdate) => void>()
 
-    const snapshot = await fetchRepositorySnapshot(repository, TEST_TOKEN, onProgress)
+    const snapshot = await fetchRepositorySnapshot(
+      repository,
+      tokenTransport(TEST_TOKEN),
+      onProgress,
+    )
 
     expect(snapshot.issues.map(({ number }) => number)).toEqual([1, 2])
     expect(requestAt(0).body.variables.cursor).toBeNull()
@@ -114,9 +127,9 @@ describe('fetchRepositorySnapshot', () => {
       }),
     )
 
-    await expect(fetchRepositorySnapshot(repository, TEST_TOKEN, vi.fn())).rejects.toThrow(
-      'Repository not found or the token cannot access it.',
-    )
+    await expect(
+      fetchRepositorySnapshot(repository, tokenTransport(TEST_TOKEN), vi.fn()),
+    ).rejects.toThrow('Repository not found or the token cannot access it.')
   })
 
   it.each([
@@ -139,9 +152,11 @@ describe('fetchRepositorySnapshot', () => {
   ])('bounds %s without exposing authorization values', async (_name, response, message) => {
     fetchMock.mockResolvedValue(response)
 
-    const error = await fetchRepositorySnapshot(repository, TEST_TOKEN, vi.fn()).catch(
-      (reason: unknown) => reason,
-    )
+    const error = await fetchRepositorySnapshot(
+      repository,
+      tokenTransport(TEST_TOKEN),
+      vi.fn(),
+    ).catch((reason: unknown) => reason)
 
     expect(error).toBeInstanceOf(GitHubGraphQlError)
     expect(String(error)).toContain(message)
@@ -151,9 +166,9 @@ describe('fetchRepositorySnapshot', () => {
   it('bounds a non-JSON response', async () => {
     fetchMock.mockResolvedValue(new Response('not json', { status: 502 }))
 
-    await expect(fetchRepositorySnapshot(repository, TEST_TOKEN, vi.fn())).rejects.toThrow(
-      'GitHub returned HTTP 502.',
-    )
+    await expect(
+      fetchRepositorySnapshot(repository, tokenTransport(TEST_TOKEN), vi.fn()),
+    ).rejects.toThrow('GitHub returned HTTP 502.')
   })
 
   it.each([null, 'cursor-1'])('rejects a missing or repeated pagination cursor', async (cursor) => {
@@ -169,9 +184,9 @@ describe('fetchRepositorySnapshot', () => {
       ),
     )
 
-    await expect(fetchRepositorySnapshot(repository, TEST_TOKEN, vi.fn())).rejects.toThrow(
-      'GitHub returned invalid pagination metadata.',
-    )
+    await expect(
+      fetchRepositorySnapshot(repository, tokenTransport(TEST_TOKEN), vi.fn()),
+    ).rejects.toThrow('GitHub returned invalid pagination metadata.')
     expect(fetchMock).toHaveBeenCalledTimes(cursor === null ? 1 : 2)
   })
 
@@ -184,7 +199,7 @@ describe('fetchRepositorySnapshot', () => {
     })
 
     await expect(
-      fetchRepositorySnapshot(repository, TEST_TOKEN, vi.fn(), controller.signal),
+      fetchRepositorySnapshot(repository, tokenTransport(TEST_TOKEN), vi.fn(), controller.signal),
     ).rejects.toMatchObject({ name: 'AbortError' })
   })
 })
@@ -193,7 +208,7 @@ describe('fetchIssueBody', () => {
   it('loads the selected issue body without returning the token', async () => {
     fetchMock.mockResolvedValue(jsonResponse(issueDetails('## Details')))
 
-    const body = await fetchIssueBody(repository, 42, TEST_TOKEN)
+    const body = await fetchIssueBody(repository, 42, tokenTransport(TEST_TOKEN))
 
     expect(body).toBe('## Details')
     expect(body).not.toContain(TEST_TOKEN)
@@ -210,7 +225,7 @@ describe('fetchIssueBody', () => {
       }),
     )
 
-    await expect(fetchIssueBody(repository, 42, TEST_TOKEN)).rejects.toThrow(
+    await expect(fetchIssueBody(repository, 42, tokenTransport(TEST_TOKEN))).rejects.toThrow(
       'Issue #42 is no longer available.',
     )
   })

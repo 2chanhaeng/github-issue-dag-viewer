@@ -1,0 +1,71 @@
+{
+  "name": "issue-atlas",
+  "displayName": "Issue Atlas",
+  "description": "Explore GitHub issue dependencies as an interactive directed graph inside VS Code.",
+  "version": "1.1.1",
+  "publisher": "2chanhaeng",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ccheney/github-issue-dag-viewer.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "github",
+    "issues",
+    "dependencies",
+    "dag",
+    "graph"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onWebviewPanel:issueAtlas.graph"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "issueAtlas.openGraph",
+        "title": "Open Issue Dependency Graph",
+        "category": "Issue Atlas",
+        "icon": "$(type-hierarchy)"
+      }
+    ],
+    "configuration": {
+      "title": "Issue Atlas",
+      "properties": {
+        "issueAtlas.authentication.provider": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "githubCli",
+            "vscode"
+          ],
+          "enumDescriptions": [
+            "Use GitHub CLI when it is installed and signed in; otherwise sign in with your VS Code GitHub account.",
+            "Always use GitHub CLI. Requests run through `gh api graphql`, so Issue Atlas never handles a token.",
+            "Always use the GitHub account signed in to VS Code."
+          ],
+          "default": "auto",
+          "markdownDescription": "How Issue Atlas authenticates its read-only GitHub GraphQL requests. No personal access token is needed."
+        },
+        "issueAtlas.githubCli.path": {
+          "type": "string",
+          "default": "gh",
+          "scope": "machine",
+          "markdownDescription": "The GitHub CLI executable. Use an absolute path when `gh` is not on the `PATH` that VS Code inherits."
+        }
+      }
+    }
+  }
+}

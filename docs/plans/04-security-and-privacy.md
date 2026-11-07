@@ -22,7 +22,7 @@ GitHub Pages and GitHub GraphQL are separate trust boundaries. Serving the appli
 1. The user enters a token in the native repository dialog.
 2. Submission validates repository input and non-empty token text before network access.
 3. The request layer reads the token from the submission and sends it only in the Authorization header to `https://api.github.com/graphql`.
-4. On a successful repository load, a React ref holds the trimmed token for lazy issue-body requests.
+4. On a successful repository load, a React ref holds an issue source whose closure keeps the trimmed token for lazy issue-body requests.
 5. Closing the dialog clears its password input state.
 6. Loading demo mode, replacing the repository, unloading the tab, or refreshing the page removes the in-memory value.
 
@@ -32,6 +32,8 @@ The application never writes tokens to:
 - Local storage, session storage, IndexedDB, cookies, or caches.
 - Console output, telemetry, analytics, errors, exports, screenshots, or generated source maps.
 - Repository files, environment files, GitHub Actions, or Pages artifacts.
+
+The VS Code extension has no token field. Its credentials stay in the extension host, and its webview cannot open network connections; see [the VS Code extension plan](./06-vscode-extension.md#message-protocol) for that trust boundary.
 
 ## Minimum token permissions
 
