@@ -2,11 +2,10 @@ import { SyncIcon } from '@primer/octicons-react'
 import { BaseStyles, Spinner, ThemeProvider } from '@primer/react'
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppHeader } from './components/AppHeader'
-import { FilterPanel } from './components/FilterPanel'
 import { GraphArea } from './components/GraphArea'
 import type { LayoutDirection } from './components/GraphCanvas'
-import { IssueInspector } from './components/IssueInspector'
-import { IssueList } from './components/IssueList'
+import { InspectorPanel } from './components/InspectorPanel'
+import { IssueRail } from './components/IssueRail'
 import { RepositoryDialog } from './components/RepositoryDialog'
 import { RepositoryLoadProgress } from './components/RepositoryLoadProgress'
 import { StatsBar } from './components/StatsBar'
@@ -217,21 +216,17 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
         <StatsBar stats={analysis.stats} />
 
         <main className="workspace">
-          <aside className={`issue-rail ${issuesOpen ? 'mobile-panel-open' : ''}`}>
-            <FilterPanel
-              filters={filters}
-              labels={labels}
-              onChange={setFilters}
-              onClose={() => setIssuesOpen(false)}
-              resultCount={visibleKeys.size}
-            />
-            <IssueList
-              analysis={analysis}
-              issueKeys={visibleKeys}
-              onSelect={selectIssue}
-              selectedKey={selectedKey}
-            />
-          </aside>
+          <IssueRail
+            analysis={analysis}
+            filters={filters}
+            issueKeys={visibleKeys}
+            labels={labels}
+            onClose={() => setIssuesOpen(false)}
+            onFiltersChange={setFilters}
+            onSelect={selectIssue}
+            open={issuesOpen}
+            selectedKey={selectedKey}
+          />
           <GraphArea
             analysis={analysis}
             colorMode={colorMode}
@@ -247,18 +242,13 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
             selectedKey={selectedKey}
             warning={graphWarning}
           />
-          <div
-            className={
-              inspectorOpen ? 'inspector-container mobile-panel-open' : 'inspector-container'
-            }
-          >
-            <IssueInspector
-              analysis={analysis}
-              bodyLoading={bodyLoading}
-              issue={selectedIssue}
-              onClose={() => setInspectorOpen(false)}
-            />
-          </div>
+          <InspectorPanel
+            analysis={analysis}
+            bodyLoading={bodyLoading}
+            issue={selectedIssue}
+            onClose={() => setInspectorOpen(false)}
+            open={inspectorOpen}
+          />
         </main>
 
         {loading && progress !== null ? <RepositoryLoadOverlay progress={progress} /> : null}

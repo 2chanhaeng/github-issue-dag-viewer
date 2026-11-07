@@ -136,6 +136,41 @@ test('completes the zero-token desktop workflow', async ({ page }) => {
   expect(browserErrors).toEqual([])
 })
 
+test('collapses and expands the issue list and details panels', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/')
+
+  const issuesPanel = page.getByRole('region', { name: 'Issues' })
+  const inspector = page.getByRole('complementary', { name: /^Issue #\d+ details$/ })
+  const graph = page.getByRole('region', { name: 'Issue dependency graph' })
+  await expect(issuesPanel).toBeVisible()
+  await expect(inspector).toBeVisible()
+  const graphWidth = async (): Promise<number> => (await graph.boundingBox())?.width ?? 0
+  const initialGraphWidth = await graphWidth()
+
+  const collapseIssues = page.getByRole('button', { name: 'Collapse issue list' })
+  await expect(collapseIssues).toHaveAttribute('aria-expanded', 'true')
+  await collapseIssues.click()
+  await expect(issuesPanel).toBeHidden()
+  const expandIssues = page.getByRole('button', { name: 'Expand issue list' })
+  await expect(expandIssues).toHaveAttribute('aria-expanded', 'false')
+  await expect(expandIssues).toBeFocused()
+
+  await page.getByRole('button', { name: 'Collapse issue details' }).click()
+  await expect(inspector).toBeHidden()
+  const expandDetails = page.getByRole('button', { name: 'Expand issue details' })
+  await expect(expandDetails).toHaveAttribute('aria-expanded', 'false')
+  await expect.poll(graphWidth).toBeGreaterThan(initialGraphWidth + 500)
+  await expectNoAccessibilityViolations(page)
+
+  await expandIssues.click()
+  await expect(issuesPanel).toBeVisible()
+  await expandDetails.click()
+  await expect(inspector).toBeVisible()
+  await expect.poll(graphWidth).toBe(initialGraphWidth)
+  expect(browserErrors).toEqual([])
+})
+
 test('publishes page progress and warns before a large repository finishes', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   const secondPageRequested = Promise.withResolvers<void>()

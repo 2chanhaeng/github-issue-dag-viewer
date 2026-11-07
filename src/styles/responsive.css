@@ -1,6 +1,8 @@
 @media (max-width: 1180px) {
   .workspace {
-    grid-template-columns: 280px minmax(340px, 1fr) 330px;
+    --issue-rail-width: 280px;
+    --inspector-width: 330px;
+    grid-template-columns: var(--issue-rail-width) minmax(340px, 1fr) var(--inspector-width);
   }
 
   .graph-actions button span:last-child,
@@ -26,7 +28,8 @@
   }
 
   .workspace {
-    grid-template-columns: 250px minmax(0, 1fr);
+    --issue-rail-width: 250px;
+    grid-template-columns: var(--issue-rail-width) minmax(0, 1fr);
   }
 
   .inspector-container {
@@ -148,6 +151,65 @@
     right: 12px;
     bottom: 12px;
     left: 12px;
+  }
+}
+
+/* Side panels collapse only where they are grid columns rather than overlays. */
+@media (width > 650px) {
+  .issue-rail > .panel-toggle {
+    display: flex;
+  }
+
+  .issue-rail .panel-heading-row {
+    padding-right: 30px;
+  }
+
+  .issue-rail .mobile-panel-close {
+    display: none;
+  }
+
+  .workspace:has(> .issue-rail.panel-collapsed) {
+    --issue-rail-width: var(--collapsed-panel-width);
+  }
+
+  .issue-rail.panel-collapsed > :not(.panel-toggle) {
+    display: none;
+  }
+
+  .issue-rail.panel-collapsed > .panel-toggle {
+    top: 8px;
+    right: 0;
+    left: 0;
+    justify-content: center;
+  }
+}
+
+@media (width > 900px) {
+  .inspector-container > .panel-toggle {
+    display: flex;
+  }
+
+  .inspector-container .inspector-state {
+    padding-right: 30px;
+  }
+
+  .workspace:has(> .inspector-container.panel-collapsed) {
+    --inspector-width: var(--collapsed-panel-width);
+  }
+
+  .inspector-container.panel-collapsed {
+    border-left: 1px solid var(--borderColor-default, #d0d7de);
+  }
+
+  .inspector-container.panel-collapsed > :not(.panel-toggle) {
+    display: none;
+  }
+
+  .inspector-container.panel-collapsed > .panel-toggle {
+    top: 8px;
+    right: 0;
+    left: 0;
+    justify-content: center;
   }
 }
 

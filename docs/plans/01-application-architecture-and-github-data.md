@@ -90,7 +90,7 @@ The first release does not paginate each nested dependency connection. Doing so 
 
 ## State ownership
 
-- React state owns the current snapshot, source mode, filters, selection, layout direction, progress, and visible mobile panels.
+- React state owns the current snapshot, source mode, filters, selection, layout direction, progress, and visible mobile panels. Each side panel owns its collapsed state.
 - A ref owns the active issue source and current load abort controller. In the browser, the issue source closes over the token; in VS Code, it forwards requests to the extension host.
 - The URL owns only the optional canonical repository name.
 - No application state is written to local storage, session storage, IndexedDB, cookies, or service-worker caches.

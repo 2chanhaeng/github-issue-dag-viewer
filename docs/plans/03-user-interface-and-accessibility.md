@@ -24,6 +24,8 @@ The application should feel adjacent to GitHub Issues without reproducing GitHub
 
 The application occupies one viewport. The graph canvas receives the remaining height after header, summary, and toolbar rows. The issue list and inspector scroll independently so a long issue set or Markdown body cannot expand the canvas off screen.
 
+Each side panel has a collapse control in its top corner. A collapsed panel shrinks to a narrow strip that keeps the expand control, and the graph canvas takes the freed width. The control reports its state through `aria-expanded` and keeps focus across the toggle. Collapse applies only while a panel is a grid column; overlay panels keep their close controls instead.
+
 ## Header and summary
 
 The header contains:

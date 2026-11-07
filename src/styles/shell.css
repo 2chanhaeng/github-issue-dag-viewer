@@ -117,8 +117,11 @@
 }
 
 .workspace {
+  --issue-rail-width: 310px;
+  --inspector-width: 370px;
+  --collapsed-panel-width: 40px;
   display: grid;
-  grid-template-columns: 310px minmax(360px, 1fr) 370px;
+  grid-template-columns: var(--issue-rail-width) minmax(360px, 1fr) var(--inspector-width);
   min-height: 0;
 }
 
@@ -131,6 +134,7 @@
 }
 
 .inspector-container {
+  position: relative;
   min-height: 0;
 }
 
@@ -140,11 +144,29 @@
 }
 
 .mobile-panel-close,
-.mobile-pane-action {
+.mobile-pane-action,
+.panel-toggle {
   display: none;
 }
 
+.panel-toggle {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  right: 10px;
+}
+
+.panel-toggle-start svg {
+  transform: scaleX(-1);
+}
+
+/* Primer paints expanded menu buttons as active; an expanded panel is the resting state. */
+.panel-toggle button[aria-expanded="true"]:not(:hover) {
+  background-color: transparent;
+}
+
 .issue-rail {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   border-right: 1px solid var(--borderColor-default, #d0d7de);
