@@ -1,5 +1,7 @@
 import * as vscode from 'vscode'
+import { parseRepositoryInput } from '../../src/github/parse-repository'
 import { type GraphQlTransport, tokenTransport } from '../../src/github/transport'
+import { COMMANDS, repositoryInputError } from './commands'
 import { createTransport, credentialDescription, credentialProvider } from './credentials'
 import { execFileRunner, githubCliTransport } from './github-cli'
 import {
@@ -10,7 +12,9 @@ import {
   panelTitle,
   webviewOptions,
 } from './panel'
-import { type GitRemote, repositoryCandidates } from './remotes'
+import type { RepositoryCandidate } from './remotes'
+import { registerRepositoryView } from './repository-view'
+import { workspaceGit, workspaceRepositories } from './workspace'
 
 /** GitHub OAuth has no read-only scope that covers private repository issues. */
 const GITHUB_SCOPES = ['repo']
@@ -47,27 +51,10 @@ const panelEnvironment = (extensionUri: vscode.Uri): PanelEnvironment => ({
   credentialDescription: () => credentialDescription(settings().provider),
 })
 
-/** The subset of the built-in Git extension API that Issue Atlas reads. */
-interface GitExtension {
-  getAPI: (version: 1) => {
-    readonly repositories: readonly { readonly state: { readonly remotes: readonly GitRemote[] } }[]
-  }
-}
-
-const workspaceRemotes = async (): Promise<GitRemote[]> => {
-  const extension = vscode.extensions.getExtension<GitExtension>('vscode.git')
-  if (extension === undefined) return []
-  try {
-    const git = extension.isActive ? extension.exports : await extension.activate()
-    return git.getAPI(1).repositories.flatMap(({ state }) => state.remotes)
-  } catch {
-    return []
-  }
-}
-
 /** Resolves `undefined` when the user dismisses the picker and `null` for the offline demo. */
-const pickRepository = async (): Promise<string | null | undefined> => {
-  const candidates = repositoryCandidates(await workspaceRemotes())
+const pickRepository = async (
+  candidates: readonly RepositoryCandidate[],
+): Promise<string | null | undefined> => {
   if (candidates.length <= 1) return candidates[0]?.nameWithOwner ?? null
   const picked = await vscode.window.showQuickPick(
     candidates.map(({ nameWithOwner, remotes }) => ({
@@ -82,6 +69,18 @@ const pickRepository = async (): Promise<string | null | undefined> => {
   return picked?.label
 }
 
+/** Resolves `undefined` when the user dismisses the input box. */
+const promptForRepository = async (): Promise<string | undefined> => {
+  const value = await vscode.window.showInputBox({
+    title: 'Open Issue Dependency Graph',
+    prompt: 'Enter owner/repository or a github.com repository URL.',
+    placeHolder: 'owner/repository',
+    ignoreFocusOut: true,
+    validateInput: repositoryInputError,
+  })
+  return value === undefined ? undefined : parseRepositoryInput(value).nameWithOwner
+}
+
 const restoredRepository = (state: unknown): string | null => {
   const repository = (state as { repository?: unknown } | null | undefined)?.repository
   return typeof repository === 'string' ? repository : null
@@ -93,6 +92,8 @@ const sameRepository = (left: string | null, right: string | null): boolean =>
 export const activate = (context: vscode.ExtensionContext): void => {
   const panels = new Set<GraphPanel>()
   const environment = panelEnvironment(context.extensionUri)
+  const git = workspaceGit()
+  const repositoryView = registerRepositoryView(git)
 
   const attach = (panel: vscode.WebviewPanel, repository: string | null): void => {
     const graphPanel = attachGraphPanel(panel, environment, repository, () =>
@@ -119,10 +120,20 @@ export const activate = (context: vscode.ExtensionContext): void => {
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('issueAtlas.openGraph', async (argument?: unknown) => {
-      const repository = typeof argument === 'string' ? argument : await pickRepository()
+    repositoryView,
+    vscode.commands.registerCommand(COMMANDS.openGraph, async (argument?: unknown) => {
+      const repository =
+        typeof argument === 'string'
+          ? argument
+          : await pickRepository(workspaceRepositories(await git))
       if (repository !== undefined) show(repository)
     }),
+    vscode.commands.registerCommand(COMMANDS.openRepository, async () => {
+      const repository = await promptForRepository()
+      if (repository !== undefined) show(repository)
+    }),
+    vscode.commands.registerCommand(COMMANDS.openDemo, () => show(null)),
+    vscode.commands.registerCommand(COMMANDS.refreshRepositories, () => repositoryView.refresh()),
     vscode.window.registerWebviewPanelSerializer(GRAPH_VIEW_TYPE, {
       deserializeWebviewPanel: async (panel, state: unknown) =>
         attach(panel, restoredRepository(state)),

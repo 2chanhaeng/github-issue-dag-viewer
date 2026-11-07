@@ -39,8 +39,76 @@
         "title": "Open Issue Dependency Graph",
         "category": "Issue Atlas",
         "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "issueAtlas.openRepository",
+        "title": "Open Repository…",
+        "category": "Issue Atlas",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "issueAtlas.openDemo",
+        "title": "Explore Demo",
+        "category": "Issue Atlas",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "issueAtlas.refreshRepositories",
+        "title": "Refresh Repositories",
+        "category": "Issue Atlas",
+        "icon": "$(refresh)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "issueAtlas",
+          "title": "Issue Atlas",
+          "icon": "media/issue-atlas.svg"
+        }
+      ]
+    },
+    "views": {
+      "issueAtlas": [
+        {
+          "id": "issueAtlas.repositories",
+          "name": "Repositories",
+          "icon": "media/issue-atlas.svg",
+          "contextualTitle": "Issue Atlas"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "issueAtlas.repositories",
+        "contents": "No github.com remotes were found in this workspace.\n[Open Repository](command:issueAtlas.openRepository)\n[Explore Demo](command:issueAtlas.openDemo)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "issueAtlas.openRepository",
+          "when": "view == issueAtlas.repositories",
+          "group": "navigation@1"
+        },
+        {
+          "command": "issueAtlas.refreshRepositories",
+          "when": "view == issueAtlas.repositories",
+          "group": "navigation@2"
+        },
+        {
+          "command": "issueAtlas.openDemo",
+          "when": "view == issueAtlas.repositories",
+          "group": "issueAtlas@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "issueAtlas.refreshRepositories",
+          "when": "false"
+        }
+      ]
+    },
     "configuration": {
       "title": "Issue Atlas",
       "properties": {

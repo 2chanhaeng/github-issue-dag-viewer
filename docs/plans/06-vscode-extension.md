@@ -9,6 +9,7 @@ The VS Code extension hosts the same viewer in an editor tab, so issue dependenc
 ```mermaid
 flowchart LR
     Command["Issue Atlas: Open Issue Dependency Graph"] --> Host["Extension host (Node)"]
+    View["Activity Bar: Repositories view"] --> Host
     Host --> Credentials{"Credential provider"}
     Credentials -->|default| Gh["gh api graphql"]
     Credentials -->|gh missing or signed out| Account["VS Code GitHub account"]
@@ -36,7 +37,10 @@ extension/
 ├── package.json            # VS Code manifest; version matches the root package
 ├── README.md               # Marketplace description
 └── src/
-    ├── extension.ts        # activation, command, panel serializer, settings, Git remotes
+    ├── extension.ts        # activation, commands, panel serializer, settings
+    ├── commands.ts         # command and view identifiers, repository input and tree items
+    ├── workspace.ts        # built-in Git extension access
+    ├── repository-view.ts  # Activity Bar Repositories view
     ├── panel.ts            # webview lifecycle, request routing, exports
     ├── credentials.ts      # provider selection and GitHub CLI fallback
     ├── github-cli.ts       # gh api graphql transport
@@ -50,7 +54,7 @@ src/
 └── webview.tsx             # webview entry
 ```
 
-`extension/src` may import from `src/github`, `src/domain`, and `src/platform`. Nothing in `src` imports from `extension/src`, and only `extension/src` imports `vscode`. Pure modules (`credentials`, `github-cli`, `messages`, `remotes`, `repository-stream`, `webview-html`) do not import `vscode`, so unit tests cover them directly.
+`extension/src` may import from `src/github`, `src/domain`, and `src/platform`. Nothing in `src` imports from `extension/src`, and only `extension/src` imports `vscode`. Pure modules (`commands`, `credentials`, `github-cli`, `messages`, `remotes`, `repository-stream`, `webview-html`) do not import `vscode`, so unit tests cover them directly.
 
 ## GraphQL transport
 
@@ -100,7 +104,16 @@ The host generates the document (`webview-html.ts`) with a fresh nonce per panel
 
 ## Workspace integration
 
-The command reads remotes from the built-in Git extension. One github.com repository loads immediately; several open a picker with `upstream` first; none opens the demo. Local-path and non-github.com remotes are ignored.
+Repositories come from the remotes known to the built-in Git extension. Local-path and non-github.com remotes are ignored, and remotes pointing at the same repository are merged.
+
+The **Issue Atlas** Activity Bar container (`media/issue-atlas.svg`, a monochrome 24×24 SVG that VS Code renders as a mask) holds the **Repositories** view:
+
+- Each item is one repository, labelled `owner/name` with its remote names, `upstream` first. Selecting it runs `issueAtlas.openGraph` with that repository.
+- The title bar runs `issueAtlas.openRepository` (an input box validated by the shared repository parser) and `issueAtlas.refreshRepositories`; its overflow menu runs `issueAtlas.openDemo`.
+- With no items, welcome content offers the same two commands.
+- The view follows Git repository open, close, and state events, and re-renders only when the repository list changes.
+
+`issueAtlas.openGraph` without an argument uses the same list: one repository loads immediately, several open a picker, none opens the demo. Opening a repository that already has a panel reveals that panel.
 
 `issueAtlas.githubCli.path` is machine-scoped, so a workspace cannot redirect the extension to an executable it controls. The extension declares support for untrusted workspaces: it executes only the user-configured `gh`, and the Git extension is unavailable in restricted mode.
 
@@ -110,6 +123,7 @@ The command reads remotes from the built-in Git extension. One github.com reposi
 
 ## Acceptance criteria
 
+- The Activity Bar icon opens a Repositories view that lists workspace github.com repositories and opens their graphs.
 - No token field is shown in VS Code, and no credential reaches the webview.
 - With gh signed in, repository and body requests run through `gh api graphql`.
 - With gh missing or signed out, `auto` asks for the VS Code GitHub account once.

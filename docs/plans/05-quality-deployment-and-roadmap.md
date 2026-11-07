@@ -71,6 +71,7 @@ The [contributor and operations guide](../contributor-guide.md) is the clean-clo
 - Credential selection and the GitHub CLI to VS Code account fallback.
 - Webview message validation, page deltas, document CSP, and configuration escaping.
 - Git remote discovery.
+- Manifest consistency: contributed commands, menu and welcome references, the Activity Bar container, and its packaged icon.
 
 ## CI workflow
 

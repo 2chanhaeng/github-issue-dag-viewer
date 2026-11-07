@@ -4,7 +4,9 @@ Issue Atlas turns native GitHub issue dependencies into an interactive directed 
 
 ## Open a graph
 
-Run **Issue Atlas: Open Issue Dependency Graph** from the Command Palette.
+Select the **Issue Atlas** icon in the Activity Bar. The **Repositories** view lists the github.com repositories behind the workspace's Git remotes, `upstream` first; select one to open its graph. The view's title bar opens any other repository (**Open Repository…**), refreshes the list, and offers **Explore Demo** in its overflow menu. Without a github.com remote, the view shows buttons for both.
+
+The same graph opens from the Command Palette with **Issue Atlas: Open Issue Dependency Graph**:
 
 - With one github.com remote in the workspace, Issue Atlas loads that repository immediately.
 - With several, it asks which one to open. `upstream` is listed before `origin`, because forks usually keep their issues upstream.

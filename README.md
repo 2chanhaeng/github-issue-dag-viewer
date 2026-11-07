@@ -31,7 +31,7 @@ bun run package:vscode
 code --install-extension extension/issue-atlas-1.1.1.vsix
 ```
 
-Run **Issue Atlas: Open Issue Dependency Graph** from the Command Palette. It opens the workspace's github.com repository, or asks which one when there are several remotes. See [the extension README](./extension/README.md) for settings.
+Select the **Issue Atlas** icon in the Activity Bar to list the workspace's github.com repositories and open one, or run **Issue Atlas: Open Issue Dependency Graph** from the Command Palette. See [the extension README](./extension/README.md) for settings.
 
 ## Run locally
 
