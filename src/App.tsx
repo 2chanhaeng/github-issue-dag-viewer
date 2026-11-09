@@ -10,26 +10,20 @@ import { RepositoryDialog } from './components/RepositoryDialog'
 import { RepositoryLoadProgress } from './components/RepositoryLoadProgress'
 import { StatsBar } from './components/StatsBar'
 import { demoSnapshot } from './demo/demo-data'
-import { availableLabels, filterIssueKeys } from './domain/filters'
+import { DEFAULT_QUERY } from './domain/filter-menus'
+import { availableLabels } from './domain/filters'
 import { analyzeGraph } from './domain/graph'
-import type { GraphAnalysis, GraphFilters, LoadProgress, RepositorySnapshot } from './domain/types'
+import type { GraphAnalysis, LoadProgress, RepositorySnapshot } from './domain/types'
 import { parseRepositoryInput } from './github/parse-repository'
 import { useColorMode } from './hooks/use-color-mode'
 import { useLazyIssueBody } from './hooks/use-issue-body'
+import { useIssueSearch } from './hooks/use-issue-search'
 import type { ExportFile, IssueSource, ViewerPlatform } from './platform/types'
 import './styles/base.css'
 import './styles/shell.css'
 import './styles/details.css'
 import './styles/graph.css'
 import './styles/responsive.css'
-
-const initialFilters = (): GraphFilters => ({
-  query: 'is:issue',
-  state: 'all',
-  readiness: 'all',
-  labels: new Set(),
-  showExternal: true,
-})
 
 const jsonExportFile = (snapshot: RepositorySnapshot, keys: ReadonlySet<string>): ExportFile => ({
   name: `${snapshot.repository.name}-issue-dependencies.json`,
@@ -81,7 +75,7 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
   const colorMode = useColorMode(platform.colorModes)
   const [snapshot, setSnapshot] = useState<RepositorySnapshot>(demoSnapshot)
   const [source, setSource] = useState<'demo' | 'github'>('demo')
-  const [filters, setFilters] = useState<GraphFilters>(initialFilters)
+  const [query, setQuery] = useState(DEFAULT_QUERY)
   const [selectedKey, setSelectedKey] = useState<string | null>(() =>
     selectInitialIssue(demoSnapshot),
   )
@@ -96,7 +90,8 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
   const loadAbortRef = useRef<AbortController | null>(null)
 
   const analysis = useMemo(() => analyzeGraph(snapshot.issues), [snapshot.issues])
-  const visibleKeys = useMemo(() => filterIssueKeys(analysis, filters), [analysis, filters])
+  const search = useIssueSearch({ query, snapshot, analysis, source, loading, sourceRef })
+  const { visibleKeys } = search
   const labels = useMemo(() => availableLabels(analysis), [analysis])
   const selectedIssue = selectedKey === null ? null : (analysis.nodes.get(selectedKey) ?? null)
   const selectIssue = (key: string): void => {
@@ -156,7 +151,7 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
             published = true
             setSnapshot(partialSnapshot)
             setSource('github')
-            setFilters(initialFilters())
+            setQuery(DEFAULT_QUERY)
             setSelectedKey(selectInitialIssue(partialSnapshot))
             setDialogOpen(false)
             platform.rememberRepository(partialSnapshot.repository.nameWithOwner)
@@ -190,7 +185,7 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
     sourceRef.current = null
     setSnapshot({ ...demoSnapshot, fetchedAt: new Date().toISOString() })
     setSource('demo')
-    setFilters(initialFilters())
+    setQuery(DEFAULT_QUERY)
     setSelectedKey(selectInitialIssue(demoSnapshot))
     setDialogOpen(false)
     setError(null)
@@ -218,13 +213,13 @@ export default function App({ platform }: { platform: ViewerPlatform }): React.J
         <main className="workspace">
           <IssueRail
             analysis={analysis}
-            filters={filters}
-            issueKeys={visibleKeys}
             labels={labels}
             onClose={() => setIssuesOpen(false)}
-            onFiltersChange={setFilters}
+            onQueryChange={setQuery}
             onSelect={selectIssue}
             open={issuesOpen}
+            query={query}
+            search={search}
             selectedKey={selectedKey}
           />
           <GraphArea

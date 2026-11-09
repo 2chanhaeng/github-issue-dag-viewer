@@ -1,4 +1,9 @@
-import type { IssueRecord, LoadProgress, RepositorySnapshot } from '../domain/types'
+import type {
+  IssueRecord,
+  IssueSearchResult,
+  LoadProgress,
+  RepositorySnapshot,
+} from '../domain/types'
 import type { ColorMode } from '../hooks/use-color-mode'
 import type { ExportFile } from './types'
 
@@ -19,6 +24,7 @@ export interface WebviewState {
 export type WebviewMessage =
   | { type: 'load-repository'; requestId: number; repository: string }
   | { type: 'load-issue-body'; requestId: number; repository: string; number: number }
+  | { type: 'search-issues'; requestId: number; repository: string; query: string }
   | { type: 'cancel'; requestId: number }
   | { type: 'save-file'; file: ExportFile }
   | { type: 'repository-changed'; repository: string | null }
@@ -34,6 +40,10 @@ export type HostMessage =
     }
   | { type: 'repository-loaded'; requestId: number }
   | { type: 'issue-body'; requestId: number; body: string }
+  | { type: 'search-results'; requestId: number; result: IssueSearchResult }
   | { type: 'request-failed'; requestId: number; message: string }
+
+/** GitHub rejects longer search queries well before this bound. */
+export const MAXIMUM_SEARCH_QUERY_LENGTH = 4_096
 
 export const EXPORT_FILE_NAME_PATTERN = /^[\w.-]{1,160}\.(json|svg|png)$/

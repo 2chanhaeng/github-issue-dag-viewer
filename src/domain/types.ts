@@ -42,6 +42,16 @@ export interface IssueRecord {
   assignees: IssueActor[]
   labels: IssueLabel[]
   milestone: { title: string; url: string } | null
+  issueType: string | null
+  locked: boolean
+  commentCount: number
+  reactionCount: number
+  /** Reaction totals keyed by GitHub's `ReactionContent` names, such as `THUMBS_UP`. */
+  reactionCounts: Readonly<Record<string, number>>
+  /** Issue key of the parent issue. */
+  parent: string | null
+  /** Issue keys of direct sub-issues. */
+  subIssues: string[]
   createdAt: string
   updatedAt: string
   closedAt: string | null
@@ -61,6 +71,10 @@ export interface RepositorySnapshot {
   repository: RepositoryRef
   description: string | null
   isPrivate: boolean
+  isArchived: boolean
+  primaryLanguage: string | null
+  /** The signed-in GitHub login that `@me` resolves to; null without a connection. */
+  viewerLogin: string | null
   issues: IssueRecord[]
   fetchedAt: string
   rateLimit: RateLimit | null
@@ -102,12 +116,10 @@ export interface GraphAnalysis {
 export type IssueStateFilter = 'all' | 'open' | 'closed'
 export type ReadinessFilter = 'all' | 'ready' | 'blocked' | 'cyclic'
 
-export interface GraphFilters {
-  query: string
-  state: IssueStateFilter
-  readiness: ReadinessFilter
-  labels: ReadonlySet<string>
-  showExternal: boolean
+/** Issues that GitHub search matched; `total` exceeds `keys.length` when GitHub capped results. */
+export interface IssueSearchResult {
+  keys: string[]
+  total: number
 }
 
 export interface LoadProgress {

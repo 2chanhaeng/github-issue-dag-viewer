@@ -1,5 +1,5 @@
 import dagre from 'dagre'
-import { filterIssueKeys } from '../src/domain/filters'
+import { filterIssueKeys, planIssueSearch } from '../src/domain/filters'
 import { analyzeGraph, relatedNodes } from '../src/domain/graph'
 import type { GraphAnalysis } from '../src/domain/types'
 import { createLargeGraphFixture, type LargeGraphShape } from './large-graph-fixtures'
@@ -44,13 +44,12 @@ const exerciseInteractions = (analysis: GraphAnalysis, selectedKey: string): num
   const startedAt = performance.now()
   relatedNodes(selectedKey, analysis.incoming)
   relatedNodes(selectedKey, analysis.outgoing)
-  filterIssueKeys(analysis, {
-    query: 'benchmark issue 49',
-    state: 'open',
-    readiness: 'all',
-    labels: new Set(),
-    showExternal: true,
+  const plan = planIssueSearch('benchmark issue 49 state:open', {
+    analysis,
+    repositories: new Map(),
+    viewerLogin: null,
   })
+  filterIssueKeys(plan, analysis, new Map())
   return elapsed(startedAt)
 }
 

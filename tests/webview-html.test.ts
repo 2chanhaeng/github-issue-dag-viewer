@@ -37,11 +37,26 @@ describe('parseWebviewMessage', () => {
     expect(
       parseWebviewMessage({ type: 'load-repository', requestId: 1, repository: 'octo-org/a' }),
     ).toEqual({ type: 'load-repository', requestId: 1, repository: 'octo-org/a' })
+    expect(
+      parseWebviewMessage({
+        type: 'search-issues',
+        requestId: 2,
+        repository: 'octo-org/a',
+        query: 'mentions:monalisa',
+      }),
+    ).toEqual({
+      type: 'search-issues',
+      requestId: 2,
+      repository: 'octo-org/a',
+      query: 'mentions:monalisa',
+    })
   })
 
   it.each([
     { type: 'load-repository', requestId: 0, repository: 'octo-org/a' },
     { type: 'load-issue-body', requestId: 1, repository: 'octo-org/a', number: 1.5 },
+    { type: 'search-issues', requestId: 1, repository: 'octo-org/a', query: '' },
+    { type: 'search-issues', requestId: 1, repository: 'octo-org/a', query: 'x'.repeat(4_097) },
     {
       type: 'save-file',
       file: { name: '../../.ssh/config.json', mimeType: 'x', encoding: 'utf8', data: '' },
@@ -62,6 +77,9 @@ describe('repositoryPageMessages', () => {
       repository: { owner: 'o', name: 'r', nameWithOwner: 'o/r', url: 'https://github.com/o/r' },
       description: null,
       isPrivate: false,
+      isArchived: false,
+      primaryLanguage: null,
+      viewerLogin: null,
       fetchedAt: '2026-11-07T00:00:00Z',
       rateLimit: null,
       issues: keys.map((key) => ({ key }) as never),

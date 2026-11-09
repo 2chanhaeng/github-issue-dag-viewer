@@ -1,4 +1,9 @@
-import type { RepositoryLoadUpdate, RepositoryRef, RepositorySnapshot } from '../domain/types'
+import type {
+  IssueSearchResult,
+  RepositoryLoadUpdate,
+  RepositoryRef,
+  RepositorySnapshot,
+} from '../domain/types'
 import type { ColorModeSource } from '../hooks/use-color-mode'
 
 export interface ExportFile {
@@ -16,6 +21,12 @@ export interface IssueSource {
     signal: AbortSignal,
   ) => Promise<RepositorySnapshot>
   loadIssueBody: (repository: RepositoryRef, number: number, signal: AbortSignal) => Promise<string>
+  /** Runs a GitHub issue search scoped to the repository; `query` excludes that scope. */
+  searchIssues: (
+    repository: RepositoryRef,
+    query: string,
+    signal: AbortSignal,
+  ) => Promise<IssueSearchResult>
 }
 
 /**

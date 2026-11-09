@@ -32,6 +32,9 @@ const metadata = {
   repository,
   description: null,
   isPrivate: false,
+  isArchived: false,
+  primaryLanguage: null,
+  viewerLogin: null,
   fetchedAt: '2026-11-07T00:00:00Z',
   rateLimit: null,
 }
@@ -112,6 +115,32 @@ describe('vscodePlatform', () => {
 
     await expect(loading).rejects.toMatchObject({ name: 'AbortError' })
     expect(posted.at(-1)).toEqual({ type: 'cancel', requestId: 1 })
+  })
+
+  it('asks the host to run GitHub searches', async () => {
+    const { api, posted } = fakeApi()
+    const source = vscodePlatform(api, config, window, document).openSource('')
+
+    const searching = source.searchIssues(
+      repository,
+      'mentions:monalisa',
+      new AbortController().signal,
+    )
+    expect(posted).toEqual([
+      {
+        type: 'search-issues',
+        requestId: 1,
+        repository: 'octo-org/roadmap',
+        query: 'mentions:monalisa',
+      },
+    ])
+    deliver({
+      type: 'search-results',
+      requestId: 1,
+      result: { keys: ['octo-org/roadmap#3'], total: 1 },
+    })
+
+    await expect(searching).resolves.toEqual({ keys: ['octo-org/roadmap#3'], total: 1 })
   })
 
   it('sends exports and repository changes to the host', () => {

@@ -4,6 +4,7 @@ import {
   fetchIssueBody,
   fetchRepositorySnapshot,
   GitHubGraphQlError,
+  searchRepositoryIssues,
   tokenTransport,
 } from '../src/github/client'
 import {
@@ -61,8 +62,19 @@ describe('fetchRepositorySnapshot', () => {
     expect(snapshot.issues[0]).toMatchObject({
       key: 'octo-org/roadmap#1',
       body: null,
+      issueType: null,
+      locked: false,
+      commentCount: 0,
+      reactionCount: 0,
+      parent: null,
+      subIssues: [],
       dependencyDataTruncated: true,
       isExternal: false,
+    })
+    expect(snapshot).toMatchObject({
+      isArchived: false,
+      primaryLanguage: 'TypeScript',
+      viewerLogin: 'monalisa',
     })
     expect(snapshot.issues[0]?.blockedBy[0]).toMatchObject({
       key: 'octo-org/roadmap#101',
@@ -228,5 +240,73 @@ describe('fetchIssueBody', () => {
     await expect(fetchIssueBody(repository, 42, tokenTransport(TEST_TOKEN))).rejects.toThrow(
       'Issue #42 is no longer available.',
     )
+  })
+})
+
+const searchPage = ({
+  numbers,
+  issueCount = numbers.length,
+  hasNextPage = false,
+  endCursor = null,
+}: {
+  numbers: number[]
+  issueCount?: number
+  hasNextPage?: boolean
+  endCursor?: string | null
+}) => ({
+  data: {
+    search: {
+      issueCount,
+      pageInfo: { hasNextPage, endCursor },
+      nodes: [
+        ...numbers.map((number) => ({
+          number,
+          repository: { nameWithOwner: 'octo-org/roadmap' },
+        })),
+        {},
+        null,
+      ],
+    },
+  },
+})
+
+describe('searchRepositoryIssues', () => {
+  it('scopes a grouped query to the repository and ignores non-issue results', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(searchPage({ numbers: [3, 5] })))
+
+    const result = await searchRepositoryIssues(
+      repository,
+      'mentions:monalisa OR commenter:hubot',
+      tokenTransport(TEST_TOKEN),
+    )
+
+    expect(result).toEqual({ keys: ['octo-org/roadmap#3', 'octo-org/roadmap#5'], total: 2 })
+    expect(requestAt(0).body.variables).toEqual({
+      query: 'repo:octo-org/roadmap is:issue (mentions:monalisa OR commenter:hubot)',
+      cursor: null,
+    })
+    expect(requestAt(0).body.query).toContain('type: ISSUE_ADVANCED')
+  })
+
+  it('rejects a query that would close the repository scope early', async () => {
+    await expect(
+      searchRepositoryIssues(repository, 'a) OR (repo:other/private', tokenTransport(TEST_TOKEN)),
+    ).rejects.toThrow(GitHubGraphQlError)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('follows cursors and reports the total when GitHub caps results', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          searchPage({ numbers: [1], issueCount: 2_500, hasNextPage: true, endCursor: 'c1' }),
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse(searchPage({ numbers: [2], issueCount: 2_500 })))
+
+    const result = await searchRepositoryIssues(repository, 'linked:pr', tokenTransport(TEST_TOKEN))
+
+    expect(result).toEqual({ keys: ['octo-org/roadmap#1', 'octo-org/roadmap#2'], total: 2_500 })
+    expect(requestAt(1).body.variables.cursor).toBe('c1')
   })
 })

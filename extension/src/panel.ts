@@ -2,7 +2,11 @@ import { randomBytes } from 'node:crypto'
 import { homedir } from 'node:os'
 import { posix } from 'node:path'
 import * as vscode from 'vscode'
-import { fetchIssueBody, fetchRepositorySnapshot } from '../../src/github/client'
+import {
+  fetchIssueBody,
+  fetchRepositorySnapshot,
+  searchRepositoryIssues,
+} from '../../src/github/client'
 import { parseRepositoryInput } from '../../src/github/parse-repository'
 import type { GraphQlTransport } from '../../src/github/transport'
 import type { ColorMode } from '../../src/hooks/use-color-mode'
@@ -152,6 +156,13 @@ export const attachGraphPanel = (
           const target = parseRepositoryInput(message.repository)
           const body = await fetchIssueBody(target, message.number, transport, signal)
           post({ type: 'issue-body', requestId: message.requestId, body })
+        })
+      case 'search-issues':
+        return run(message.requestId, async (signal) => {
+          transport ??= environment.createTransport()
+          const target = parseRepositoryInput(message.repository)
+          const result = await searchRepositoryIssues(target, message.query, transport, signal)
+          post({ type: 'search-results', requestId: message.requestId, result })
         })
       case 'cancel':
         requests.get(message.requestId)?.abort()

@@ -1,7 +1,19 @@
 import type { ZodType } from 'zod'
-import type { RepositoryLoadUpdate, RepositoryRef, RepositorySnapshot } from '../domain/types'
+import { parseSearch, serializeSearch } from '../domain/search-syntax'
+import type {
+  IssueSearchResult,
+  RepositoryLoadUpdate,
+  RepositoryRef,
+  RepositorySnapshot,
+} from '../domain/types'
 import { type DependencyRef, type IssueRecord, issueKey } from '../domain/types'
-import { issueDetailsSchema, type RepositoryPageResponse, repositoryPageSchema } from './schemas'
+import {
+  type IssueSearchResponse,
+  issueDetailsSchema,
+  issueSearchSchema,
+  type RepositoryPageResponse,
+  repositoryPageSchema,
+} from './schemas'
 import { GitHubGraphQlError, type GraphQlTransport } from './transport'
 
 export { GitHubGraphQlError, type GraphQlTransport, tokenTransport } from './transport'
@@ -13,6 +25,8 @@ const REPOSITORY_PAGE_QUERY = `
       url
       description
       isPrivate
+      isArchived
+      primaryLanguage { name }
       issues(first: 100, after: $cursor, orderBy: {field: CREATED_AT, direction: ASC}) {
         totalCount
         pageInfo { hasNextPage endCursor }
@@ -22,6 +36,13 @@ const REPOSITORY_PAGE_QUERY = `
           assignees(first: 20) { nodes { login avatarUrl url } }
           labels(first: 50) { nodes { name color description } }
           milestone { title url }
+          issueType { name }
+          locked
+          comments { totalCount }
+          reactions { totalCount }
+          reactionGroups { content reactors { totalCount } }
+          parent { number repository { nameWithOwner } }
+          subIssues(first: 100) { nodes { number repository { nameWithOwner } } }
           blockedBy(first: 100) {
             totalCount
             nodes { number state title url repository { nameWithOwner } }
@@ -33,9 +54,24 @@ const REPOSITORY_PAGE_QUERY = `
         }
       }
     }
+    viewer { login }
     rateLimit { cost remaining resetAt }
   }
 `
+
+/** `ISSUE_ADVANCED` accepts `AND`, `OR`, and parentheses. */
+const ISSUE_SEARCH_QUERY = `
+  query IssueSearch($query: String!, $cursor: String) {
+    search(query: $query, type: ISSUE_ADVANCED, first: 100, after: $cursor) {
+      issueCount
+      pageInfo { hasNextPage endCursor }
+      nodes { ... on Issue { number repository { nameWithOwner } } }
+    }
+  }
+`
+
+/** GitHub search returns at most this many results for one query. */
+const SEARCH_RESULT_LIMIT = 1_000
 
 const ISSUE_DETAILS_QUERY = `
   query IssueDetails($owner: String!, $name: String!, $number: Int!) {
@@ -77,9 +113,20 @@ const dependencyRef = (dependency: {
   key: issueKey(dependency.repository.nameWithOwner, dependency.number),
 })
 
+const referenceKey = (reference: { number: number; repository: { nameWithOwner: string } }) =>
+  issueKey(reference.repository.nameWithOwner, reference.number)
+
 const issueRecord = (
   repository: string,
-  issue: NonNullable<RepositoryPageResponse['repository']>['issues']['nodes'][number],
+  {
+    issueType,
+    comments,
+    reactions,
+    reactionGroups,
+    parent,
+    subIssues,
+    ...issue
+  }: NonNullable<RepositoryPageResponse['repository']>['issues']['nodes'][number],
 ): IssueRecord => ({
   ...issue,
   key: issueKey(repository, issue.number),
@@ -87,6 +134,14 @@ const issueRecord = (
   body: null,
   assignees: issue.assignees.nodes,
   labels: issue.labels.nodes,
+  issueType: issueType?.name ?? null,
+  commentCount: comments.totalCount,
+  reactionCount: reactions.totalCount,
+  reactionCounts: Object.fromEntries(
+    (reactionGroups ?? []).map(({ content, reactors }) => [content, reactors.totalCount]),
+  ),
+  parent: parent === null ? null : referenceKey(parent),
+  subIssues: subIssues.nodes.map(referenceKey),
   blockedBy: issue.blockedBy.nodes.map(dependencyRef),
   blocking: issue.blocking.nodes.map(dependencyRef),
   dependencyDataTruncated:
@@ -132,6 +187,9 @@ export const fetchRepositorySnapshot = async (
       },
       description: repositoryData.description,
       isPrivate: repositoryData.isPrivate,
+      isArchived: repositoryData.isArchived,
+      primaryLanguage: repositoryData.primaryLanguage?.name ?? null,
+      viewerLogin: page.viewer?.login ?? null,
       issues: [...issues],
       fetchedAt,
       rateLimit: page.rateLimit,
@@ -172,4 +230,49 @@ export const fetchIssueBody = async (
     throw new GitHubGraphQlError(`Issue #${number} is no longer available.`)
   }
   return issue.body
+}
+
+const searchPageKeys = (page: IssueSearchResponse): string[] =>
+  page.search.nodes.flatMap((node) =>
+    node?.number === undefined || node.repository === undefined
+      ? []
+      : [issueKey(node.repository.nameWithOwner, node.number)],
+  )
+
+/** Re-serializes the query inside parentheses so that an `OR` cannot widen the repository scope. */
+const scopedSearchQuery = (repository: RepositoryRef, query: string): string => {
+  const parsed = parseSearch(query)
+  if (!parsed.ok) throw new GitHubGraphQlError(parsed.error)
+  const scope = `repo:${repository.nameWithOwner} is:issue`
+  return parsed.node === null ? scope : `${scope} (${serializeSearch(parsed.node)})`
+}
+
+/** Runs a GitHub issue search inside one repository, keeping up to GitHub's 1,000 results. */
+export const searchRepositoryIssues = async (
+  repository: RepositoryRef,
+  query: string,
+  transport: GraphQlTransport,
+  signal?: AbortSignal,
+): Promise<IssueSearchResult> => {
+  const scoped = scopedSearchQuery(repository, query)
+  const keys: string[] = []
+  let cursor: string | null = null
+  let total = 0
+  let hasNextPage = true
+
+  while (hasNextPage && keys.length < SEARCH_RESULT_LIMIT) {
+    const page: IssueSearchResponse = await request(
+      transport,
+      ISSUE_SEARCH_QUERY,
+      { query: scoped, cursor },
+      issueSearchSchema,
+      signal,
+    )
+    keys.push(...searchPageKeys(page))
+    total = page.search.issueCount
+    const nextCursor = page.search.pageInfo.endCursor
+    hasNextPage = page.search.pageInfo.hasNextPage && nextCursor !== null && nextCursor !== cursor
+    cursor = nextCursor
+  }
+  return { keys, total }
 }

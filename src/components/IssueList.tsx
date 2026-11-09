@@ -6,12 +6,15 @@ import {
   RepoIcon,
 } from '@primer/octicons-react'
 import { Label } from '@primer/react'
+import { type IssueSort, issueComparator } from '../domain/issue-sort'
 import type { GraphAnalysis, IssueRecord } from '../domain/types'
 
 interface IssueListProps {
   analysis: GraphAnalysis
   issueKeys: ReadonlySet<string>
   selectedKey: string | null
+  /** A `sort:` qualifier from the query; null keeps ready issues first. */
+  sort: IssueSort | null
   onSelect: (key: string) => void
 }
 
@@ -71,17 +74,13 @@ export const IssueList = ({
   analysis,
   issueKeys,
   selectedKey,
+  sort,
   onSelect,
 }: IssueListProps): React.JSX.Element => {
   const issues = [...issueKeys]
     .map((key) => analysis.nodes.get(key))
     .filter((issue) => issue !== undefined)
-    .toSorted((left, right) => {
-      const readiness = Number(analysis.ready.has(right.key)) - Number(analysis.ready.has(left.key))
-      return (
-        readiness || left.number - right.number || left.repository.localeCompare(right.repository)
-      )
-    })
+    .toSorted(issueComparator(sort, analysis))
 
   return (
     <div className="issue-list-scroll">

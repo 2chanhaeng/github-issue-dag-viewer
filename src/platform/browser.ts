@@ -1,4 +1,4 @@
-import { fetchIssueBody, fetchRepositorySnapshot } from '../github/client'
+import { fetchIssueBody, fetchRepositorySnapshot, searchRepositoryIssues } from '../github/client'
 import { type GraphQlTransport, tokenTransport } from '../github/transport'
 import { systemColorModes } from '../hooks/use-color-mode'
 import type { ExportFile, IssueSource, ViewerPlatform } from './types'
@@ -8,6 +8,8 @@ export const transportSource = (transport: GraphQlTransport): IssueSource => ({
     fetchRepositorySnapshot(repository, transport, onUpdate, signal),
   loadIssueBody: (repository, number, signal) =>
     fetchIssueBody(repository, number, transport, signal),
+  searchIssues: (repository, query, signal) =>
+    searchRepositoryIssues(repository, query, transport, signal),
 })
 
 const repositoryFromUrl = (): string =>

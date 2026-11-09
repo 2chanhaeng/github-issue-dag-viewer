@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import { EXPORT_FILE_NAME_PATTERN, type WebviewMessage } from '../../src/platform/protocol'
+import {
+  EXPORT_FILE_NAME_PATTERN,
+  MAXIMUM_SEARCH_QUERY_LENGTH,
+  type WebviewMessage,
+} from '../../src/platform/protocol'
 
 /**
  * The webview renders repository-controlled Markdown, so the extension host treats every message
@@ -16,6 +20,12 @@ export const webviewMessageSchema = z.discriminatedUnion('type', [
     requestId,
     repository: repositoryName,
     number: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal('search-issues'),
+    requestId,
+    repository: repositoryName,
+    query: z.string().min(1).max(MAXIMUM_SEARCH_QUERY_LENGTH),
   }),
   z.object({ type: z.literal('cancel'), requestId }),
   z.object({

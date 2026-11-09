@@ -205,6 +205,32 @@
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
+.filter-status {
+  display: grid;
+  gap: 4px;
+  margin: -4px 0 0;
+  padding: 0;
+  font-size: 12px;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.filter-status:empty {
+  display: none;
+}
+
+.filter-status-danger {
+  color: var(--fgColor-danger, #d1242f);
+}
+
+.filter-status-attention {
+  color: var(--fgColor-attention, #9a6700);
+}
+
+.filter-status-muted {
+  color: var(--fgColor-muted, #59636e);
+}
+
 .filter-menu-row {
   display: flex;
   flex-wrap: wrap;

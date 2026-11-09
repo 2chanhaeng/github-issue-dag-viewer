@@ -1,4 +1,4 @@
-import type { RepositorySnapshot } from '../domain/types'
+import type { IssueSearchResult, RepositorySnapshot } from '../domain/types'
 import type { ColorMode, ColorModeSource } from '../hooks/use-color-mode'
 import {
   type HostMessage,
@@ -108,6 +108,19 @@ export const hostIssueSource = (api: VsCodeWebviewApi, target: Window): IssueSou
         }),
         (message, resolve) => {
           if (message.type === 'issue-body') resolve(message.body)
+        },
+        signal,
+      ),
+    searchIssues: (repository, query, signal) =>
+      request<IssueSearchResult>(
+        (requestId) => ({
+          type: 'search-issues',
+          requestId,
+          repository: repository.nameWithOwner,
+          query,
+        }),
+        (message, resolve) => {
+          if (message.type === 'search-results') resolve(message.result)
         },
         signal,
       ),

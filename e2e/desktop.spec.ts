@@ -88,6 +88,21 @@ test('completes the zero-token desktop workflow', async ({ page }) => {
   await expect(issueList.getByRole('button')).toHaveCount(2)
   await page.keyboard.press('Escape')
 
+  await search.fill('is:issue (label:"area:docs"')
+  await expect(page.getByText('Close every opening parenthesis.')).toBeVisible()
+  await expect(search).toHaveAttribute('aria-invalid', 'true')
+  await search.fill('is:issue mentions:ccheney')
+  await expect(
+    page.getByText(
+      'Open a GitHub repository to search mentions:ccheney; demo data cannot answer it.',
+    ),
+  ).toBeVisible()
+  await expect(issueList.getByRole('button')).toHaveCount(0)
+  await search.fill('is:issue state:closed (label:"area:docs" OR label:"area:security")')
+  await expect(issueList.getByRole('button')).toHaveCount(3)
+  await search.fill('is:issue state:closed label:"area:docs"')
+  await expect(issueList.getByRole('button')).toHaveCount(2)
+
   const horizontal = page.getByRole('button', { name: 'Use left-to-right layout' })
   const vertical = page.getByRole('button', { name: 'Use top-to-bottom layout' })
   await expect(horizontal).toHaveAttribute('aria-pressed', 'true')

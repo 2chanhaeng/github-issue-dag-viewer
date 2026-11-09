@@ -62,16 +62,33 @@ blocker -> blocked issue
 
 An open issue is ready when every retrieved incoming blocker is closed. The graph also computes roots, sinks, topological layers, cycles, open critical path, and transitive upstream and downstream neighborhoods. See [the graph plan](./plans/02-graph-domain-and-analysis.md) for the exact algorithms.
 
-The query field supports free text and these qualifiers:
+The query field accepts GitHub issue search syntax. Spaces and `AND` join terms, `OR` offers alternatives, and `AND` binds tighter than `OR`. Parentheses group terms, `-` excludes a qualifier, and `NOT` excludes one word or phrase. As on GitHub, a repeated qualifier must match every value (`label:a label:b`), and a comma lists alternatives only where GitHub accepts one (`label:a,b`, `type:Bug,Task`). Matching follows GitHub's own quirks: `-no:milestone` is ignored, and a query with `NOT` before a qualifier or a group matches nothing; the field explains why.
 
-| Qualifier | Meaning |
+The loaded snapshot answers these qualifiers directly:
+
+| Qualifier | Matches |
 | --- | --- |
-| `state:open`, `state:closed` | Issue state |
-| `is:ready`, `is:blocked`, `is:cyclic` | Computed readiness |
-| `label:"area:ui"` | Inclusive label match; repeat for additional labels |
-| `-is:external` | Hide cross-repository dependency nodes |
+| `is:open`, `is:closed`, `state:open`, `state:closed` | Issue state |
+| `reason:completed`, `reason:"not planned"`, `reason:duplicate` | Close reason |
+| `label:`, `milestone:`, `type:` | Label, milestone, or issue type name, exact and case-insensitive |
+| `author:`, `assignee:` | Login, `@me`, `@copilot`, `app/NAME`, or `assignee:*` for any assignee |
+| `has:` and `no:` with `label`, `milestone`, `assignee`, `type`, `parent-issue`, `sub-issue`, `blocked-by`, `blocking` | Presence of metadata |
+| `blocked-by:`, `blocking:`, `parent-issue:`, `sub-issue:` | A direct relationship with `owner/repo#123` |
+| `is:blocked`, `is:blocking` | Open issues with an open blocker, or blocking an open issue |
+| `comments:`, `reactions:`, `interactions:` | Counts as `n`, `>n`, `>=n`, `<n`, `<=n`, `a..b`, `a..*`, or `*..b` |
+| `created:`, `updated:`, `closed:` | The same range forms with `YYYY-MM-DD`, which covers a UTC day, or an ISO 8601 timestamp with an offset |
+| `repo:`, `user:`, `org:` | Repository or owner |
+| `is:public`, `is:private`, `is:locked`, `is:unlocked`, `archived:`, `language:` | Visibility, conversation lock, archive state, or primary language |
+| `sort:` | Issue list order, such as `sort:created-asc` or `sort:reactions-+1`; the graph keeps its layout |
+| `is:ready`, `is:cyclic`, `-is:external` | Issue Atlas readiness, cycle membership, and cross-repository nodes |
 
-State, Readiness, and Labels menus write the same syntax into the query. Query input is briefly debounced, and filtering hides or shows the existing laid-out topology instead of rerunning Dagre on every keystroke.
+GitHub search answers every other qualifier and every other value form, such as `mentions:`, `commenter:`, `involves:`, `team:`, `project:`, `linked:pr`, and `field.priority:high`. Issue Atlas sends those terms as an `ISSUE_ADVANCED` search inside the loaded repository and combines the matches with the local terms. Neighboring GitHub-only terms share one search, results are cached until the repository is reloaded, and the issue list keeps its previous result while GitHub answers. GitHub returns at most 1,000 matches per search, and the field reports a capped search. Demo data cannot reach GitHub, so GitHub-only terms match nothing in demo mode.
+
+Plain words match issue titles, repository names, `#number`, and label names locally. Add `in:title`, `in:body`, or `in:comments` to search text with GitHub's full-text search instead.
+
+Cross-repository nodes carry only their state, title, number, repository, and dependency data. Qualifiers evaluate against that partial data, and GitHub search covers only the loaded repository.
+
+The State, Readiness, and Labels menus and the cross-repository toggle rewrite only top-level terms and keep the rest of the query. The Labels menu writes one comma-separated `label:` qualifier, so it selects issues that have any checked label. Query input is briefly debounced, and filtering hides or shows the existing laid-out topology instead of rerunning Dagre on every keystroke.
 
 The application follows the operating system's light or dark preference. There is no separate stored theme preference.
 

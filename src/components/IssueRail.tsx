@@ -1,29 +1,30 @@
-import type { GraphAnalysis, GraphFilters } from '../domain/types'
+import type { GraphAnalysis } from '../domain/types'
+import type { IssueSearch } from '../hooks/use-issue-search'
 import { FilterPanel } from './FilterPanel'
 import { IssueList } from './IssueList'
 import { SidePanel } from './SidePanel'
 
 interface IssueRailProps {
   analysis: GraphAnalysis
-  filters: GraphFilters
-  issueKeys: ReadonlySet<string>
+  query: string
+  search: IssueSearch
   labels: readonly string[]
   open: boolean
   selectedKey: string | null
   onClose: () => void
-  onFiltersChange: (filters: GraphFilters) => void
+  onQueryChange: (query: string) => void
   onSelect: (key: string) => void
 }
 
 export const IssueRail = ({
   analysis,
-  filters,
-  issueKeys,
+  query,
+  search,
   labels,
   open,
   selectedKey,
   onClose,
-  onFiltersChange,
+  onQueryChange,
   onSelect,
 }: IssueRailProps): React.JSX.Element => (
   <SidePanel
@@ -35,17 +36,20 @@ export const IssueRail = ({
     side="start"
   >
     <FilterPanel
-      filters={filters}
       labels={labels}
-      onChange={onFiltersChange}
       onClose={onClose}
-      resultCount={issueKeys.size}
+      onQueryChange={onQueryChange}
+      query={query}
+      remoteSearch={search.remoteSearch}
+      resultCount={search.visibleKeys.size}
+      searchError={search.plan.error}
     />
     <IssueList
       analysis={analysis}
-      issueKeys={issueKeys}
+      issueKeys={search.visibleKeys}
       onSelect={onSelect}
       selectedKey={selectedKey}
+      sort={search.plan.sort}
     />
   </SidePanel>
 )
